@@ -6,11 +6,18 @@ import { dueReminders } from "../js/modules/habits-core.js";
 
 const CATCH_UP_MINUTES = 120; // ältere, verpasste Erinnerungen werden nicht mehr verschickt
 
+// Zusammenfassung als Hinweis am GitHub-Lauf (sichtbar in der Übersicht des Laufs)
+const notice = (level, msg) => console.log(process.env.GITHUB_ACTIONS ? `::${level} title=Erinnerungen::${msg}` : msg);
+
 if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-  console.log("Secret FIREBASE_SERVICE_ACCOUNT fehlt – nichts zu tun.");
-  process.exit(0);
+  notice("error", "Secret FIREBASE_SERVICE_ACCOUNT fehlt (GitHub → Settings → Secrets and variables → Actions).");
+  process.exit(1);
 }
-admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
+let account;
+try { account = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT); }
+catch { notice("error", "Secret FIREBASE_SERVICE_ACCOUNT ist kein gültiges JSON. Bitte den kompletten Inhalt der Datei einfügen."); process.exit(1); }
+if (account.project_id !== "rechnungsbuch") notice("warning", `Dienstkonto gehört zu Projekt "${account.project_id}", erwartet "rechnungsbuch".`);
+admin.initializeApp({ credential: admin.credential.cert(account) });
 const db = admin.firestore();
 
 function localNow(tz) {
@@ -20,7 +27,9 @@ function localNow(tz) {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, hhmm: `${parts.hour}:${parts.minute}` };
 }
 
-const tokenDocs = await db.collectionGroup("pushTokens").get();
+let tokenDocs;
+try { tokenDocs = await db.collectionGroup("pushTokens").get(); }
+catch (e) { notice("error", `Zugriff auf Firestore fehlgeschlagen: ${e.message}`); process.exit(1); }
 const byUser = new Map();
 for (const d of tokenDocs.docs) {
   const uid = d.ref.parent.parent.id;
@@ -73,4 +82,4 @@ for (const [uid, tokens] of byUser) {
     console.error(`Nutzer ${uid}:`, e.message);
   }
 }
-console.log(`${sentTotal} Erinnerung(en) verschickt`);
+notice("notice", `Verbindung zu Firebase ok · ${byUser.size} Nutzer mit Push-Geräten (${tokenDocs.size} Geräte) · ${sentTotal} Erinnerung(en) verschickt`);
