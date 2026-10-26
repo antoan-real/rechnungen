@@ -5,6 +5,7 @@ import { startSettings, getSettings, onSettings, saveSettings, navLayout } from 
 import { $, esc, toast, openSheet, confirmBox } from "./core/ui.js";
 import { moduleById } from "./modules/registry.js";
 import { startReminders } from "./core/reminders.js";
+import { refreshPush } from "./core/push.js";
 
 const view = $("#view");
 let user = null, cleanup = null, routeToken = 0, stopSettings = null, stopReminders = null, stopNav = null;
@@ -152,6 +153,7 @@ onAuthStateChanged(auth, async u => {
   stopSettings = await startSettings();
   stopNav = onSettings(() => renderNav((decodeURIComponent(location.hash.slice(1)) || "dashboard")));
   stopReminders = startReminders(ctx);
+  refreshPush();
   route();
 });
 

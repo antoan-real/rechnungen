@@ -3,6 +3,7 @@ import { $, $$, esc } from "../core/ui.js";
 import { navLayout, dashboardLayout } from "../core/settings.js";
 import { moduleById } from "./registry.js";
 import { auth, sendPasswordResetEmail } from "../firebase.js";
+import { pushConfigured, pushSupported, pushOnHere, enablePush, disablePush } from "../core/push.js";
 
 export function mount(el, ctx) {
   const s = ctx.settings();
@@ -22,7 +23,12 @@ export function mount(el, ctx) {
         <h2>Benachrichtigungen</h2>
         <p class="note" id="nt-state"></p>
         <div class="row"><button type="button" class="btn" id="nt-ask">Benachrichtigungen erlauben</button><button type="button" class="btn" id="nt-test">Test senden</button></div>
-        <p class="note">Erinnerungen stellst du bei jeder Gewohnheit ein. Sie kommen, solange die App geöffnet oder im Hintergrund aktiv ist. Ist die App ganz geschlossen, holt sie verpasste Erinnerungen beim nächsten Öffnen nach.</p>
+        <p class="note">Erinnerungen stellst du bei jeder Gewohnheit ein.</p>
+        <div class="stack" style="border-top:1px solid var(--line);padding-top:12px">
+          <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><b>Push auch bei geschlossener App</b><p class="note" id="push-state" style="margin-top:2px"></p></div>
+          <label class="switch"><input type="checkbox" id="push-on" aria-label="Push auf diesem Gerät"><span></span></label></div>
+          <p class="note">Ein Dienst prüft etwa alle 15 Minuten, ob Erinnerungen fällig sind. Sie kommen deshalb bis zu ca. 15 Minuten nach der eingestellten Uhrzeit. Jedes Gerät wird einzeln eingeschaltet.</p>
+        </div>
       </section>
 
       <section class="card stack">
@@ -129,6 +135,22 @@ export function mount(el, ctx) {
     if (reg) reg.showNotification("Daily Begleiter", opt); else new Notification("Daily Begleiter", opt);
   };
 
+  /* Push */
+  function drawPush() {
+    const box = $("#push-on", el), state = $("#push-state", el);
+    box.checked = pushOnHere();
+    box.disabled = !pushConfigured() || !pushSupported();
+    state.textContent = !pushConfigured() ? "Noch nicht eingerichtet: Der Web-Push-Schlüssel fehlt in js/firebase.js."
+      : !pushSupported() ? "Dieser Browser kann keine Push-Nachrichten empfangen. Auf dem iPhone zuerst die App zum Home-Bildschirm hinzufügen."
+      : pushOnHere() ? "Auf diesem Gerät eingeschaltet." : "Auf diesem Gerät aus.";
+  }
+  $("#push-on", el).addEventListener("change", async e => {
+    const on = e.target.checked; e.target.disabled = true;
+    try { on ? await enablePush() : await disablePush(); ctx.toast(on ? "Push-Erinnerungen eingeschaltet." : "Push-Erinnerungen ausgeschaltet."); }
+    catch (ex) { ctx.toast(ex.message, { error: true }); }
+    drawPush(); drawNotif();
+  });
+
   /* Installation */
   const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -149,7 +171,7 @@ export function mount(el, ctx) {
   };
   $("#acc-out", el).onclick = () => ctx.confirmBox("Wirklich abmelden?", "Abmelden", ctx.logout);
 
-  drawNav(); drawDash(); drawNotif();
+  drawNav(); drawDash(); drawNotif(); drawPush();
   if (location.hash === "#einstellungen" && sessionStorage.getItem("db-scroll") === "dashboard") { sessionStorage.removeItem("db-scroll"); $("#dashboard", el).scrollIntoView(); }
   const stop = ctx.onSettings(() => { drawNav(); drawDash(); });
   return stop;

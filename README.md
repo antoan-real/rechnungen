@@ -43,6 +43,11 @@ Alles liegt pro Nutzer unter `users/{uid}/…`:
 | `settings/app` | Navigation, Startseite, Design, Name |
 | `habits/{id}` | Gewohnheiten inkl. Erinnerungseinstellungen |
 | `habitLogs/{YYYY-MM-DD}` | erledigte Gewohnheiten pro Tag (`v: { habitId: Wert }`) |
+| `reminderState/{YYYY-MM-DD}` | bereits verschickte Erinnerungen (damit nichts doppelt kommt) |
+| `pushTokens/{id}` | Geräte, die Push-Erinnerungen bekommen |
+| `workouts/{id}` | Trainings mit ihren Übungen |
+| `sessions/{id}` | Trainingseinheiten (Gewicht, Sätze, Wiederholungen je Übung) |
+| `uni/plan` | Studienplan: Module, Prüfungsformen, nächste Prüfungen |
 
 ## Firebase einrichten (einmalig)
 
@@ -60,16 +65,25 @@ Erscheint „Keine Berechtigung“ bzw. `permission-denied`, stimmen die Regeln 
 ## Erinnerungen
 
 Erinnerungen für Gewohnheiten werden im Bereich Gewohnheiten pro Gewohnheit eingestellt (Uhrzeit, täglich oder
-bestimmte Wochentage, ein/aus). Sie erscheinen als Benachrichtigung, **solange die App geöffnet oder im Hintergrund
-aktiv ist**. Wurde eine Erinnerung verpasst, erscheint sie beim nächsten Öffnen.
+bestimmte Wochentage, ein/aus).
 
-Echte Push-Nachrichten bei komplett geschlossener App brauchen einen Server, der zur richtigen Zeit sendet:
-- **Firebase Cloud Functions** (zeitgesteuert): erfordert den Blaze-Tarif (Kreditkarte, im kleinen Rahmen meist 0 €).
-- **Kostenlos:** ein zeitgesteuerter GitHub-Actions-Workflow, der alle 15 Minuten fällige Erinnerungen per
-  Firebase Cloud Messaging verschickt (ohne Blaze, Zeitpunkt ca. ±15 Minuten ungenau).
-- **Kostenlos und ohne Server:** Erinnerung als wiederkehrender Termin in den Handy-Kalender exportieren.
+- **App geöffnet:** Die App zeigt die Erinnerung selbst an.
+- **App geschlossen:** Der Workflow `.github/workflows/reminders.yml` läuft alle 15 Minuten (kostenlos),
+  prüft mit `scripts/send-reminders.js` fällige Erinnerungen und schickt sie per Firebase Cloud Messaging.
+  GitHub startet geplante Läufe oft ein paar Minuten später; verpasste Erinnerungen kommen bis 2 Stunden danach noch.
 
-Noch nicht eingebaut – Entscheidung steht aus.
+### Einrichtung Push (einmalig)
+1. Firebase → Projekteinstellungen → **Cloud Messaging** → Web-Push-Zertifikate → **Schlüsselpaar generieren**.
+   Den öffentlichen Schlüssel in `js/firebase.js` bei `VAPID_KEY` eintragen.
+2. Firebase → Projekteinstellungen → **Dienstkonten** → **Neuen privaten Schlüssel generieren** (JSON-Datei).
+   **Diese Datei ist geheim** – nicht ins Repo legen und nicht weitergeben.
+3. GitHub → Repo → Settings → Secrets and variables → Actions → **New repository secret**:
+   Name `FIREBASE_SERVICE_ACCOUNT`, Inhalt = kompletter Inhalt der JSON-Datei.
+4. In der App: Einstellungen → „Push auch bei geschlossener App“ auf jedem Gerät einschalten.
+5. Test: GitHub → Actions → „Erinnerungen senden“ → **Run workflow**.
+
+Hinweis: GitHub pausiert geplante Workflows in öffentlichen Repos nach 60 Tagen ohne Commit. Dann unter Actions
+den Workflow wieder aktivieren.
 
 ## Lokal testen
 

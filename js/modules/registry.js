@@ -4,8 +4,8 @@ export const MODULES = [
   { id: "dashboard", title: "Start", load: () => import("./dashboard.js") },
   { id: "gewohnheiten", title: "Gewohnheiten", load: () => import("./gewohnheiten.js") },
   { id: "rechnungen", title: "Rechnungen", wide: true, load: () => import("./rechnungen/index.js") },
-  { id: "training", title: "Training", soon: "Phase 2", text: "Eigene Trainings, Übungen, Gewichte und Fortschrittsgrafiken." },
-  { id: "uni", title: "Uni", soon: "Phase 2", text: "Modulraster nach Quartalsblöcken, Prüfungsformen, Noten und deine nächsten Prüfungen." },
+  { id: "training", title: "Training", load: () => import("./training.js") },
+  { id: "uni", title: "Uni", wide: true, load: () => import("./uni.js") },
   { id: "rezepte", title: "Rezepte", soon: "Phase 3", text: "Eiweißreiche Rezepte mit Nährwerten, Kosten und Alternativen." },
   { id: "reflektor", title: "Lebensreflektor", soon: "Phase 3", text: "Dankbarkeit, Rauszoomen-Fragen und Rückblicke." },
   { id: "news", title: "News", soon: "Phase 4", text: "Nachrichten großer deutscher Medien, nach Themen gruppiert." },
@@ -22,10 +22,10 @@ export const DEFAULT_BAR = ["dashboard", "gewohnheiten", "rechnungen"];
 export const WIDGETS = [
   { id: "greeting", title: "Begrüßung mit Datum", module: "dashboard", span: 2 },
   { id: "habits-today", title: "Gewohnheiten heute", module: "gewohnheiten" },
-  { id: "open-invoices", title: "Offene Rechnungen", module: "rechnungen" },
-  { id: "next-exam", title: "Nächste Uni-Prüfung", module: "uni", soon: "Phase 2" },
-  { id: "last-training", title: "Letztes Training", module: "training", soon: "Phase 2" },
-  { id: "gratitude", title: "Dankbarkeit heute", module: "reflektor", soon: "Phase 3" }
+  { id: "next-exam", title: "Nächste Uni-Prüfung", module: "uni" },
+  { id: "last-training", title: "Letztes Training", module: "training" },
+  { id: "gratitude", title: "Dankbarkeit heute", module: "reflektor", soon: "Phase 3" },
+  { id: "open-invoices", title: "Offene Rechnungen", module: "rechnungen" }
 ];
 
 export const moduleById = id => id === SETTINGS_MODULE.id ? SETTINGS_MODULE : MODULES.find(m => m.id === id);

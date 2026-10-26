@@ -1,0 +1,25 @@
+name: Erinnerungen senden
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # alle 15 Minuten (GitHub startet oft ein paar Minuten später)
+  workflow_dispatch:          # manuell auslösbar unter Actions → „Erinnerungen senden“ → „Run workflow“
+
+concurrency:
+  group: reminders
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: node scripts/send-reminders.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

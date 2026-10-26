@@ -1,0 +1,12 @@
+{
+  "name": "daily-begleiter",
+  "private": true,
+  "type": "module",
+  "description": "Nur für den Erinnerungs-Dienst (GitHub Actions). Die App selbst braucht keine Installation.",
+  "scripts": {
+    "reminders": "node scripts/send-reminders.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

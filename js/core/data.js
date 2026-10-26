@@ -20,9 +20,13 @@ export function watchCollection(name, cb, opts = {}) {
   return onSnapshot(q, s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))), e => report(e));
 }
 
-/** Ein Dokument beobachten; cb(null) wenn es fehlt */
-export function watchDoc(name, id, cb) {
-  return onSnapshot(docRef(name, id), s => cb(s.exists() ? s.data() : null), e => report(e));
+/** Ein Dokument beobachten; cb(null, meta) wenn es fehlt. meta.fromCache = noch nicht vom Server bestätigt */
+export function watchDoc(name, id, cb, opts = {}) {
+  const next = s => cb(s.exists() ? s.data() : null, { fromCache: !!s.metadata?.fromCache });
+  // includeMeta: auch melden, wenn sich nur "fromCache" ändert (nötig, um sicher zu erkennen, dass ein Dokument fehlt)
+  return opts.includeMeta
+    ? onSnapshot(docRef(name, id), { includeMetadataChanges: true }, next, e => report(e))
+    : onSnapshot(docRef(name, id), next, e => report(e));
 }
 
 export const put = (name, id, data) => setDoc(docRef(name, id), data);

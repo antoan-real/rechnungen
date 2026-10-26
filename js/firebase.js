@@ -18,6 +18,9 @@ const firebaseConfig = {
   appId: "1:413089384960:web:d68753be865facd0a7a6e5"
 };
 
+// Öffentlicher Web-Push-Schlüssel (Firebase → Projekteinstellungen → Cloud Messaging → Web-Push-Zertifikate)
+export const VAPID_KEY = "";
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
@@ -27,6 +30,6 @@ try { db = initializeFirestore(app, { localCache: persistentLocalCache({ tabMana
 catch (e) { db = initializeFirestore(app, {}); }
 
 export {
-  auth, db, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut,
+  app, auth, db, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut,
   collection, doc, onSnapshot, setDoc, deleteDoc, query, where
 };

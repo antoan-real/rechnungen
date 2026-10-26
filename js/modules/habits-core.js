@@ -63,3 +63,14 @@ export function reminderDays(h) {
 export function fmtNum(n) {
   return Number(n || 0).toLocaleString("de-DE", { maximumFractionDigits: 2 });
 }
+
+/** Fällige Erinnerungen an einem Tag zur Uhrzeit hhmm ("HH:MM"). sent = { habitId: true } bereits verschickt.
+ *  catchUp = wie viele Minuten nach der Uhrzeit eine verpasste Erinnerung noch kommt. Genutzt von App und Server. */
+export function dueReminders(habits, log, date, hhmm, sent = {}, catchUp = Infinity) {
+  const min = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const logs = { [date]: log || {} };
+  return habits.filter(h => h.reminder?.enabled && h.reminder.time
+    && h.reminder.time <= hhmm && min(hhmm) - min(h.reminder.time) <= catchUp
+    && reminderDays(h).includes(weekday(date)) && isScheduled(h, date)
+    && !isDone(h, valueOf(logs, date, h.id)) && !sent[h.id]);
+}
