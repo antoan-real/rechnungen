@@ -48,6 +48,11 @@ Alles liegt pro Nutzer unter `users/{uid}/…`:
 | `workouts/{id}` | Trainings mit ihren Übungen |
 | `sessions/{id}` | Trainingseinheiten (Gewicht, Sätze, Wiederholungen je Übung) |
 | `uni/plan` | Studienplan: Module, Prüfungsformen, nächste Prüfungen |
+| `journal/{YYYY-MM-DD}` | Dankbarkeit (3 Einträge pro Tag) |
+| `reflections/{week-2026-W44 \| month-2026-10}` | Wochen- und Monatsrückblicke mit Fragen und Antworten |
+| `settings/reflect` | eigene Reflexionsfragen und Reflektor-Erinnerungen |
+| `food/prefs` | eigene/geänderte Zutaten (Nährwerte, Preise, Alternativen), gelöschte Zutaten, ausgeblendete Startrezepte |
+| `recipes/{id}` | eigene und geänderte Rezepte |
 
 ## Firebase einrichten (einmalig)
 
@@ -65,7 +70,8 @@ Erscheint „Keine Berechtigung“ bzw. `permission-denied`, stimmen die Regeln 
 ## Erinnerungen
 
 Erinnerungen für Gewohnheiten werden im Bereich Gewohnheiten pro Gewohnheit eingestellt (Uhrzeit, täglich oder
-bestimmte Wochentage, ein/aus).
+bestimmte Wochentage, ein/aus). Der Lebensreflektor hat eigene Erinnerungen (Dankbarkeit täglich, Wochen- und
+Monatsrückblick) unter „Fragen & Erinnerungen“; sie kommen nur, wenn der Eintrag noch fehlt.
 
 - **App geöffnet:** Die App zeigt die Erinnerung selbst an.
 - **App geschlossen:** Der Workflow `.github/workflows/reminders.yml` läuft alle 15 Minuten (kostenlos),

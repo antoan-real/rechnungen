@@ -8,7 +8,7 @@
 //   Ø Steigerung = mittlere Veränderung des Höchstgewichts je Übung, letzte 4 Wochen gegenüber den 4 Wochen davor
 import { $, $$, esc, openSheet, toast } from "../core/ui.js";
 import { watchCollection, put, merge, remove, newId } from "../core/data.js";
-import { today, addDays, parseDay, weekday, daysBetween } from "../core/dates.js";
+import { today, addDays, parseDay, weekday, daysBetween, isoWeek } from "../core/dates.js";
 import { lineChart, columnChart, seriesColor } from "../core/chart.js";
 
 const TEMPLATES = [
@@ -20,11 +20,7 @@ const num = v => { const n = parseFloat(String(v ?? "").trim().replace(/\s/g, ""
 const fmt = (n, d = 1) => Number(n).toLocaleString("de-DE", { maximumFractionDigits: d });
 const volume = e => (e.weight || 0) * (e.sets || 1) * (e.reps || 1);
 const weekStart = iso => addDays(iso, -((weekday(iso) + 6) % 7));
-function isoWeek(iso) {
-  const d = parseDay(iso); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-  const jan4 = new Date(d.getFullYear(), 0, 4);
-  return 1 + Math.round(((d - jan4) / 86400000 - 3 + ((jan4.getDay() + 6) % 7)) / 7);
-}
+const isoWeekNr = iso => isoWeek(iso).week;
 const dateLabel = iso => parseDay(iso).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" });
 const ago = iso => { const n = daysBetween(iso, today()); return n === 0 ? "heute" : n === 1 ? "gestern" : `vor ${n} Tagen`; };
 const entryText = e => `${fmt(e.weight)} kg${e.sets || e.reps ? ` · ${e.sets || "?"}×${e.reps || "?"}` : ""}`;
@@ -148,7 +144,7 @@ export function mount(el, ctx) {
         <p class="note">Angezeigt wird das höchste Gewicht pro Einheit.</p>
       </section></div>`;
     cleanups.push(columnChart($("#tr-vol", body), {
-      bars: m.weeks.map(w => ({ label: "KW " + isoWeek(w), value: Math.round(m.volByWeek[w]), tip: `KW ${isoWeek(w)} (ab ${dateLabel(w)}) · ${m.countByWeek[w]} Einheit${m.countByWeek[w] === 1 ? "" : "en"}` })),
+      bars: m.weeks.map(w => ({ label: "KW " + isoWeekNr(w), value: Math.round(m.volByWeek[w]), tip: `KW ${isoWeekNr(w)} (ab ${dateLabel(w)}) · ${m.countByWeek[w]} Einheit${m.countByWeek[w] === 1 ? "" : "en"}` })),
       unit: "kg", label: "Trainingsvolumen pro Woche"
     }));
     const series = exs.filter(e => sel.includes(e.id)).map(e => {

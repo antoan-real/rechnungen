@@ -1,50 +1,67 @@
-// Erinnerungen, solange die App geöffnet ist (auch im Hintergrund-Tab).
+// Erinnerungen, solange die App geöffnet ist (auch im Hintergrund-Tab): Gewohnheiten und Lebensreflektor.
 // Bei geschlossener App verschickt scripts/send-reminders.js Push-Nachrichten (siehe push.js).
 // Beide Wege tragen versendete Erinnerungen in users/{uid}/reminderState/{Tag} ein,
 // damit keine Erinnerung doppelt kommt.
 import { watchCollection, watchDoc, merge } from "./data.js";
 import { today } from "./dates.js";
 import { dueReminders } from "../modules/habits-core.js";
+import { dueReflect, periodKey, reflectionId } from "../modules/reflect-core.js";
 
-async function notify(title, body, tag, ctx) {
+async function notify(title, body, tag, url, ctx) {
   if ("Notification" in window && Notification.permission === "granted") {
     try {
-      const opts = { body, tag, icon: "icons/icon-192.png", badge: "icons/icon-192.png", data: { url: "./#gewohnheiten" } };
+      const opts = { body, tag, icon: "icons/icon-192.png", badge: "icons/icon-192.png", data: { url } };
       const reg = await navigator.serviceWorker?.getRegistration();
       if (reg) { await reg.showNotification(title, opts); return; }
       new Notification(title, opts); return;
     } catch (e) { /* fällt auf Hinweis in der App zurück */ }
   }
-  ctx.toast(`${title}: ${body}`, { action: { label: "Öffnen", run: () => ctx.navigate("gewohnheiten") }, duration: 12000 });
+  ctx.toast(`${title}: ${body}`, { action: { label: "Öffnen", run: () => ctx.navigate(url.split("#")[1]) }, duration: 12000 });
 }
 
 export function startReminders(ctx) {
-  let habits = [], log = null, sent = null, day = today();
-  const stopHabits = watchCollection("habits", list => { habits = list; check(); });
-  let stopLog = () => {}, stopSent = () => {};
+  let habits = null, reflectCfg = null, day = today();
+  const s = { log: null, sent: null, journal: null, hasWeek: null, hasMonth: null };
+  const stops = [
+    watchCollection("habits", list => { habits = list; check(); }),
+    watchDoc("settings", "reflect", d => { reflectCfg = d || {}; check(); })
+  ];
+  let dayStops = [];
   function watchDay() {
-    stopLog(); stopSent(); log = null; sent = null;
-    stopLog = watchDoc("habitLogs", day, d => { log = d || {}; check(); });
-    stopSent = watchDoc("reminderState", day, d => { sent = d?.sent || {}; check(); });
+    dayStops.forEach(f => f());
+    Object.keys(s).forEach(k => { s[k] = null; });
+    dayStops = [
+      watchDoc("habitLogs", day, d => { s.log = d || {}; check(); }),
+      watchDoc("reminderState", day, d => { s.sent = d?.sent || {}; check(); }),
+      watchDoc("journal", day, d => { s.journal = d || {}; check(); }),
+      watchDoc("reflections", reflectionId("week", periodKey("week", day)), d => { s.hasWeek = !!d; check(); }),
+      watchDoc("reflections", reflectionId("month", periodKey("month", day)), d => { s.hasMonth = !!d; check(); })
+    ];
   }
   watchDay();
 
   function check() {
     const d = today();
     if (d !== day) { day = d; watchDay(); return; }
-    if (log === null || sent === null || !habits.length) return;
+    if (habits === null || reflectCfg === null || Object.values(s).some(v => v === null)) return;
     const now = new Date();
     const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    const due = dueReminders(habits, log, d, hhmm, sent);
-    if (!due.length) return;
-    const mark = Object.fromEntries(due.map(h => [h.id, true]));
-    Object.assign(sent, mark);
+    const messages = [];
+    const due = dueReminders(habits, s.log, d, hhmm, s.sent);
+    if (due.length) messages.push({
+      keys: due.map(h => h.id), url: "./#gewohnheiten", tag: `habits-${d}-${due.map(h => h.id).join("-")}`,
+      title: due.length === 1 ? "Erinnerung" : `${due.length} Gewohnheiten offen`,
+      body: due.map(h => (h.emoji ? h.emoji + " " : "") + h.name).join(", ")
+    });
+    for (const r of dueReflect(reflectCfg, s, d, hhmm, s.sent)) messages.push({ keys: [r.key], url: "./#reflektor", tag: `${r.key}-${d}`, title: r.title, body: r.body });
+    if (!messages.length) return;
+    const mark = Object.fromEntries(messages.flatMap(m => m.keys).map(k => [k, true]));
+    Object.assign(s.sent, mark);
     merge("reminderState", d, { date: d, sent: mark }).catch(() => {});
-    const names = due.map(h => (h.emoji ? h.emoji + " " : "") + h.name);
-    notify(due.length === 1 ? "Erinnerung" : `${due.length} Gewohnheiten offen`, names.join(", "), `habits-${d}-${due.map(h => h.id).join("-")}`, ctx);
+    messages.forEach(m => notify(m.title, m.body, m.tag, m.url, ctx));
   }
   const timer = setInterval(check, 30000);
   const onVis = () => { if (document.visibilityState === "visible") check(); };
   document.addEventListener("visibilitychange", onVis);
-  return () => { clearInterval(timer); stopHabits(); stopLog(); stopSent(); document.removeEventListener("visibilitychange", onVis); };
+  return () => { clearInterval(timer); stops.forEach(f => f()); dayStops.forEach(f => f()); document.removeEventListener("visibilitychange", onVis); };
 }

@@ -6,8 +6,8 @@ export const MODULES = [
   { id: "rechnungen", title: "Rechnungen", wide: true, load: () => import("./rechnungen/index.js") },
   { id: "training", title: "Training", load: () => import("./training.js") },
   { id: "uni", title: "Uni", wide: true, load: () => import("./uni.js") },
-  { id: "rezepte", title: "Rezepte", soon: "Phase 3", text: "Eiweißreiche Rezepte mit Nährwerten, Kosten und Alternativen." },
-  { id: "reflektor", title: "Lebensreflektor", soon: "Phase 3", text: "Dankbarkeit, Rauszoomen-Fragen und Rückblicke." },
+  { id: "rezepte", title: "Rezepte", wide: true, load: () => import("./rezepte.js") },
+  { id: "reflektor", title: "Lebensreflektor", load: () => import("./reflektor.js") },
   { id: "news", title: "News", soon: "Phase 4", text: "Nachrichten großer deutscher Medien, nach Themen gruppiert." },
   { id: "video", title: "Video zu Text", soon: "Phase 4", text: "Transkripte von YouTube, TikTok und Reels sammeln." },
   { id: "englisch", title: "Englisch", soon: "Phase 5", text: "Englisch lernen." },
@@ -24,7 +24,7 @@ export const WIDGETS = [
   { id: "habits-today", title: "Gewohnheiten heute", module: "gewohnheiten" },
   { id: "next-exam", title: "Nächste Uni-Prüfung", module: "uni" },
   { id: "last-training", title: "Letztes Training", module: "training" },
-  { id: "gratitude", title: "Dankbarkeit heute", module: "reflektor", soon: "Phase 3" },
+  { id: "gratitude", title: "Dankbarkeit heute", module: "reflektor" },
   { id: "open-invoices", title: "Offene Rechnungen", module: "rechnungen" }
 ];
 

@@ -3,6 +3,7 @@
 // Braucht das Secret FIREBASE_SERVICE_ACCOUNT (JSON des Firebase-Dienstkontos).
 import admin from "firebase-admin";
 import { dueReminders } from "../js/modules/habits-core.js";
+import { dueReflect, periodKey, reflectionId } from "../js/modules/reflect-core.js";
 
 const CATCH_UP_MINUTES = 120; // ältere, verpasste Erinnerungen werden nicht mehr verschickt
 
@@ -51,35 +52,45 @@ for (const [uid, tokens] of byUser) {
     const log = (await base.collection("habitLogs").doc(date).get()).data() || {};
     const stateRef = base.collection("reminderState").doc(date);
     const sent = (await stateRef.get()).data()?.sent || {};
-    const due = dueReminders(habits, log, date, hhmm, sent, CATCH_UP_MINUTES);
-    if (!due.length) continue;
+    const reflectCfg = (await base.collection("settings").doc("reflect").get()).data() || {};
+    const reflectState = {
+      journal: (await base.collection("journal").doc(date).get()).data() || {},
+      hasWeek: (await base.collection("reflections").doc(reflectionId("week", periodKey("week", date))).get()).exists,
+      hasMonth: (await base.collection("reflections").doc(reflectionId("month", periodKey("month", date))).get()).exists
+    };
 
-    const names = due.map(h => (h.emoji ? h.emoji + " " : "") + h.name);
-    const res = await admin.messaging().sendEachForMulticast({
-      tokens: tokens.map(t => t.get("token")),
-      data: {
-        title: due.length === 1 ? "Erinnerung" : `${due.length} Gewohnheiten offen`,
-        body: names.join(", "),
-        tag: `habits-${date}-${due.map(h => h.id).join("-")}`,
-        url: "./#gewohnheiten"
-      },
-      webpush: { headers: { Urgency: "high", TTL: "7200" } }
+    const messages = [];
+    const due = dueReminders(habits, log, date, hhmm, sent, CATCH_UP_MINUTES);
+    if (due.length) messages.push({
+      keys: due.map(h => h.id), url: "./#gewohnheiten", tag: `habits-${date}-${due.map(h => h.id).join("-")}`,
+      title: due.length === 1 ? "Erinnerung" : `${due.length} Gewohnheiten offen`,
+      body: due.map(h => (h.emoji ? h.emoji + " " : "") + h.name).join(", ")
     });
-    // abgemeldete Geräte entfernen
-    await Promise.all(res.responses.map((r, i) => {
-      const code = r.error?.code || "";
-      if (code.includes("registration-token-not-registered") || code.includes("invalid-registration-token") || code.includes("invalid-argument")) {
-        console.log(`Token entfernt (${code})`);
-        return tokens[i].ref.delete();
-      }
-      if (r.error) console.warn("Fehler beim Senden:", code, r.error.message);
-    }));
-    if (res.successCount > 0) {
-      await stateRef.set({ date, sent: Object.fromEntries(due.map(h => [h.id, true])) }, { merge: true });
-      sentTotal += due.length;
+    for (const r of dueReflect(reflectCfg, reflectState, date, hhmm, sent, CATCH_UP_MINUTES))
+      messages.push({ keys: [r.key], url: "./#reflektor", tag: `${r.key}-${date}`, title: r.title, body: r.body });
+    if (!messages.length) continue;
+
+    const delivered = [];
+    for (const m of messages) {
+      const res = await admin.messaging().sendEachForMulticast({
+        tokens: tokens.map(t => t.get("token")),
+        data: { title: m.title, body: m.body, tag: m.tag, url: m.url },
+        webpush: { headers: { Urgency: "high", TTL: "7200" } }
+      });
+      // abgemeldete Geräte entfernen
+      await Promise.all(res.responses.map((r, i) => {
+        const code = r.error?.code || "";
+        if (code.includes("registration-token-not-registered") || code.includes("invalid-registration-token") || code.includes("invalid-argument")) {
+          console.log(`Token entfernt (${code})`);
+          return tokens[i].ref.delete();
+        }
+        if (r.error) console.warn("Fehler beim Senden:", code, r.error.message);
+      }));
+      if (res.successCount > 0) { delivered.push(...m.keys); sentTotal++; }
     }
+    if (delivered.length) await stateRef.set({ date, sent: Object.fromEntries(delivered.map(k => [k, true])) }, { merge: true });
   } catch (e) {
     console.error(`Nutzer ${uid}:`, e.message);
   }
 }
-notice("notice", `Verbindung zu Firebase ok · ${byUser.size} Nutzer mit Push-Geräten (${tokenDocs.size} Geräte) · ${sentTotal} Erinnerung(en) verschickt`);
+notice("notice", `Verbindung zu Firebase ok · ${byUser.size} Nutzer mit Push-Geräten (${tokenDocs.size} Geräte) · ${sentTotal} Nachricht(en) verschickt`);

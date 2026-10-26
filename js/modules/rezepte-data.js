@@ -1,0 +1,111 @@
+// Startwerte für Rezepte: Zutaten mit Nährwerten pro 100 g (gerundete Durchschnittswerte) und
+// geschätzten Preisen pro kg (Discounter, Stand 2026). Alles ist in der App änderbar.
+// units: Gewicht in g für eine Einheit (Stück, EL, Dose …). alts: hinterlegte Alternativen.
+// diet: "vegan" | "vegetarisch" | "fisch" | "fleisch"
+const I = (id, name, aliases, kcal, protein, carbs, fat, price, diet, units, alts, group) =>
+  ({ id, name, aliases, kcal, protein, carbs, fat, price, diet, units, alts, group });
+
+export const INGREDIENTS = [
+  // Fleisch & Fisch
+  I("haehnchen", "Hähnchenbrustfilet", ["hähnchenbrust", "hühnerbrust", "hähnchen", "hähnchenfilet", "hühnchen"], 110, 23.5, 0, 1.5, 9.5, "fleisch", { Stück: 150 }, ["pute", "tofu", "soja", "seelachs"], "Fleisch & Fisch"),
+  I("pute", "Putenbrustfilet", ["putenbrust", "pute", "putengeschnetzeltes", "putenfleisch"], 105, 24, 0, 1, 11, "fleisch", { Stück: 150 }, ["haehnchen", "tofu", "seelachs"], "Fleisch & Fisch"),
+  I("rinderhack", "Rinderhackfleisch", ["rinderhack", "hackfleisch", "hack", "gehacktes"], 215, 20, 0, 15, 9, "fleisch", { Packung: 500 }, ["soja", "linsen", "putenhack", "kidney"], "Fleisch & Fisch"),
+  I("putenhack", "Putenhackfleisch", ["putenhack", "geflügelhack"], 150, 21, 0, 7, 10, "fleisch", { Packung: 400 }, ["rinderhack", "soja", "linsen"], "Fleisch & Fisch"),
+  I("thunfisch", "Thunfisch im eigenen Saft", ["thunfisch", "thunfisch natur"], 110, 25, 0, 1, 12, "fisch", { Dose: 130 }, ["seelachs", "ei", "kichererbsen", "haehnchen"], "Fleisch & Fisch"),
+  I("lachs", "Lachsfilet", ["lachs"], 200, 20, 0, 13, 25, "fisch", { Stück: 125 }, ["seelachs", "thunfisch", "tofu"], "Fleisch & Fisch"),
+  I("seelachs", "Seelachsfilet (TK)", ["seelachs", "alaska-seelachs", "fischfilet", "fisch"], 75, 17, 0, 0.8, 9, "fisch", { Stück: 100 }, ["lachs", "thunfisch", "haehnchen", "tofu"], "Fleisch & Fisch"),
+  // Eier & Milchprodukte
+  I("ei", "Ei (Größe M)", ["ei", "eier"], 145, 12.5, 0.7, 10, 5, "vegetarisch", { Stück: 60 }, ["huettenkaese", "tofu", "magerquark"], "Eier & Milch"),
+  I("magerquark", "Magerquark", ["magerquark", "quark"], 67, 12, 4, 0.3, 3.4, "vegetarisch", { Becher: 500, Packung: 500, EL: 30 }, ["skyr", "huettenkaese", "joghurt"], "Eier & Milch"),
+  I("skyr", "Skyr natur", ["skyr"], 63, 11, 4, 0.2, 4.2, "vegetarisch", { Becher: 450, EL: 30 }, ["magerquark", "joghurt", "huettenkaese"], "Eier & Milch"),
+  I("huettenkaese", "Hüttenkäse", ["hüttenkäse", "körniger frischkäse"], 98, 12, 2.6, 4.3, 5.5, "vegetarisch", { Becher: 200, EL: 30 }, ["magerquark", "harzer", "skyr"], "Eier & Milch"),
+  I("joghurt", "Naturjoghurt 1,5 %", ["joghurt", "naturjoghurt"], 50, 3.5, 4.5, 1.5, 1.8, "vegetarisch", { Becher: 500, EL: 30 }, ["skyr", "magerquark"], "Eier & Milch"),
+  I("milch", "Milch 1,5 %", ["milch", "fettarme milch"], 46, 3.4, 4.8, 1.5, 1.1, "vegetarisch", { Tasse: 240 }, ["sojadrink", "skyr"], "Eier & Milch"),
+  I("sojadrink", "Sojadrink", ["sojadrink", "sojamilch"], 40, 3.3, 2.5, 1.8, 1.6, "vegan", { Tasse: 240 }, ["milch"], "Eier & Milch"),
+  I("mozzarella", "Mozzarella light", ["mozzarella"], 165, 20, 1, 9, 9, "vegetarisch", { Stück: 125, Packung: 125 }, ["gouda", "huettenkaese"], "Eier & Milch"),
+  I("gouda", "Gouda", ["gouda", "käse", "geriebener käse", "reibekäse"], 360, 25, 0, 28, 9, "vegetarisch", { Scheibe: 20, Handvoll: 30 }, ["mozzarella", "harzer"], "Eier & Milch"),
+  I("harzer", "Harzer Käse", ["harzer", "harzer roller"], 115, 27, 0, 0.5, 9, "vegetarisch", { Packung: 200 }, ["huettenkaese", "gouda"], "Eier & Milch"),
+  I("whey", "Proteinpulver (Whey)", ["proteinpulver", "eiweißpulver", "whey", "proteinshake"], 380, 75, 8, 6, 25, "vegetarisch", { Messlöffel: 30, EL: 10 }, ["magerquark", "skyr"], "Eier & Milch"),
+  // Pflanzliches Eiweiß
+  I("tofu", "Tofu natur", ["tofu"], 125, 13, 2, 7.5, 7, "vegan", { Packung: 200, Stück: 200 }, ["soja", "tempeh", "haehnchen", "kichererbsen"], "Pflanzliches Eiweiß"),
+  I("tempeh", "Tempeh", ["tempeh"], 190, 19, 9, 11, 14, "vegan", { Packung: 200 }, ["tofu", "soja"], "Pflanzliches Eiweiß"),
+  I("soja", "Sojaschnetzel (trocken)", ["sojaschnetzel", "sojagranulat", "sojahack", "soja schnetzel"], 340, 50, 15, 1.5, 9, "vegan", { Tasse: 80 }, ["rinderhack", "tofu", "linsen"], "Pflanzliches Eiweiß"),
+  I("linsen", "Rote Linsen (trocken)", ["rote linsen", "linsen", "berglinsen"], 340, 25, 50, 1.5, 3.5, "vegan", { Tasse: 190 }, ["kidney", "kichererbsen", "soja"], "Pflanzliches Eiweiß"),
+  I("kichererbsen", "Kichererbsen (Dose, abgetropft)", ["kichererbsen"], 120, 7, 16, 2.5, 3.7, "vegan", { Dose: 240 }, ["kidney", "linsen", "edamame"], "Pflanzliches Eiweiß"),
+  I("kidney", "Kidneybohnen (Dose, abgetropft)", ["kidneybohnen", "rote bohnen", "bohnen"], 105, 7.5, 14, 0.6, 3.5, "vegan", { Dose: 250 }, ["kichererbsen", "linsen"], "Pflanzliches Eiweiß"),
+  I("edamame", "Edamame (TK)", ["edamame", "sojabohnen"], 120, 11, 8, 5, 8, "vegan", { Handvoll: 50 }, ["kichererbsen", "erbsen"], "Pflanzliches Eiweiß"),
+  I("erdnussmus", "Erdnussmus", ["erdnussbutter", "erdnussmus"], 610, 25, 13, 50, 8, "vegan", { EL: 15, TL: 6 }, ["mandelmus"], "Pflanzliches Eiweiß"),
+  I("mandelmus", "Mandelmus", ["mandelmus", "mandelbutter"], 620, 21, 6, 55, 20, "vegan", { EL: 15, TL: 6 }, ["erdnussmus"], "Pflanzliches Eiweiß"),
+  // Sättigungsbeilagen
+  I("reis", "Reis (trocken)", ["reis", "basmatireis", "jasminreis", "langkornreis"], 350, 7, 78, 0.6, 2, "vegan", { Tasse: 185 }, ["kartoffeln", "nudeln", "vollkornnudeln"], "Beilagen"),
+  I("nudeln", "Nudeln (trocken)", ["nudeln", "pasta", "spaghetti", "penne", "fusilli"], 355, 12.5, 71, 1.5, 1.8, "vegan", { Packung: 500 }, ["vollkornnudeln", "linsennudeln", "reis"], "Beilagen"),
+  I("vollkornnudeln", "Vollkornnudeln (trocken)", ["vollkornnudeln", "vollkornspaghetti"], 350, 13, 64, 2.5, 2.2, "vegan", { Packung: 500 }, ["linsennudeln", "nudeln", "reis"], "Beilagen"),
+  I("linsennudeln", "Linsennudeln (trocken)", ["linsennudeln", "linsenpasta", "proteinnudeln"], 345, 25, 48, 2, 9, "vegan", { Packung: 250 }, ["vollkornnudeln", "nudeln"], "Beilagen"),
+  I("haferflocken", "Haferflocken", ["haferflocken", "hafer", "zarte haferflocken"], 370, 13.5, 59, 7, 1.6, "vegan", { EL: 10, Tasse: 90 }, ["vollkornbrot"], "Beilagen"),
+  I("kartoffeln", "Kartoffeln", ["kartoffeln", "kartoffel"], 75, 2, 15.5, 0.1, 1.3, "vegan", { Stück: 150 }, ["reis", "nudeln"], "Beilagen"),
+  I("vollkornbrot", "Vollkornbrot", ["vollkornbrot", "brot", "toast", "vollkorntoast"], 220, 7.5, 40, 1.5, 3.5, "vegan", { Scheibe: 50 }, ["haferflocken", "wrap"], "Beilagen"),
+  I("wrap", "Weizen-Tortilla", ["wrap", "wraps", "tortilla", "tortillas"], 310, 8.5, 52, 7, 5, "vegan", { Stück: 60 }, ["vollkornbrot"], "Beilagen"),
+  // Gemüse & Obst
+  I("brokkoli", "Brokkoli", ["brokkoli", "broccoli"], 35, 3.5, 3, 0.4, 3, "vegan", { Stück: 400 }, ["tk_gemuese", "spinat"], "Gemüse & Obst"),
+  I("spinat", "Spinat (TK)", ["spinat", "blattspinat"], 23, 2.5, 1, 0.4, 2.5, "vegan", { Handvoll: 30 }, ["brokkoli"], "Gemüse & Obst"),
+  I("erbsen", "Erbsen (TK)", ["erbsen"], 80, 6, 11, 0.5, 2.5, "vegan", { Handvoll: 50 }, ["edamame", "mais"], "Gemüse & Obst"),
+  I("paprika", "Paprika", ["paprika", "paprikaschote", "paprikaschoten"], 30, 1, 6, 0.3, 4, "vegan", { Stück: 150 }, ["tk_gemuese"], "Gemüse & Obst"),
+  I("zwiebel", "Zwiebel", ["zwiebel", "zwiebeln"], 30, 1.2, 6, 0.2, 1.5, "vegan", { Stück: 80 }, [], "Gemüse & Obst"),
+  I("knoblauch", "Knoblauch", ["knoblauch", "knoblauchzehe", "knoblauchzehen"], 140, 6, 28, 0.1, 8, "vegan", { Stück: 4, Zehe: 4 }, [], "Gemüse & Obst"),
+  I("tomaten", "Gehackte Tomaten (Dose)", ["gehackte tomaten", "tomaten", "passierte tomaten", "passata", "dosentomaten"], 25, 1.2, 4, 0.2, 2, "vegan", { Dose: 400 }, [], "Gemüse & Obst"),
+  I("tomatenmark", "Tomatenmark", ["tomatenmark"], 80, 4.5, 12, 0.5, 4, "vegan", { EL: 15, TL: 5 }, [], "Gemüse & Obst"),
+  I("mais", "Mais (Dose, abgetropft)", ["mais"], 80, 2.5, 13, 1.2, 3, "vegan", { Dose: 285 }, ["erbsen", "kidney"], "Gemüse & Obst"),
+  I("tk_gemuese", "Gemüsemischung (TK)", ["gemüsemischung", "pfannengemüse", "gemüse", "wokgemüse"], 45, 2.5, 6, 0.5, 2.8, "vegan", { Handvoll: 60 }, ["brokkoli", "paprika"], "Gemüse & Obst"),
+  I("beeren", "Beeren (TK)", ["beeren", "beerenmischung", "heidelbeeren", "himbeeren", "erdbeeren"], 45, 1, 8, 0.4, 5, "vegan", { Handvoll: 60 }, ["banane"], "Gemüse & Obst"),
+  I("banane", "Banane", ["banane", "bananen"], 90, 1.1, 20, 0.3, 1.8, "vegan", { Stück: 120 }, ["beeren"], "Gemüse & Obst"),
+  // Sonstiges
+  I("oel", "Öl (Raps/Oliven)", ["öl", "olivenöl", "rapsöl", "pflanzenöl"], 880, 0, 0, 100, 6, "vegan", { EL: 10, TL: 4 }, [], "Sonstiges"),
+  I("kokosmilch", "Kokosmilch", ["kokosmilch"], 170, 1.5, 3, 17, 4, "vegan", { Dose: 400 }, ["kokosmilch_light", "joghurt"], "Sonstiges"),
+  I("kokosmilch_light", "Kokosmilch light", ["kokosmilch light", "light kokosmilch"], 75, 0.8, 2, 7, 4.5, "vegan", { Dose: 400 }, ["kokosmilch"], "Sonstiges"),
+  I("bruehe", "Gemüsebrühe (zubereitet)", ["gemüsebrühe", "brühe", "gemüsefond"], 5, 0.3, 0.6, 0.2, 0.5, "vegan", { Tasse: 240 }, [], "Sonstiges"),
+  I("sojasauce", "Sojasauce", ["sojasauce", "sojasoße", "sojasoße"], 60, 8, 5, 0, 5, "vegan", { EL: 15, TL: 5 }, [], "Sonstiges"),
+  I("honig", "Honig", ["honig"], 305, 0.3, 80, 0, 8, "vegetarisch", { TL: 7, EL: 20 }, ["ahornsirup"], "Sonstiges"),
+  I("ahornsirup", "Ahornsirup", ["ahornsirup"], 260, 0, 67, 0, 18, "vegan", { TL: 7, EL: 20 }, ["honig"], "Sonstiges"),
+  I("gewuerze", "Gewürze (Salz, Pfeffer, Paprika …)", ["salz", "pfeffer", "gewürze", "paprikapulver", "currypulver", "curry", "kreuzkümmel", "chili", "chiliflocken", "oregano", "zimt", "italienische kräuter", "kräuter"], 250, 10, 40, 5, 20, "vegan", { TL: 3, Prise: 0.5, EL: 8 }, [], "Sonstiges"),
+  I("currypaste", "Currypaste", ["currypaste", "rote currypaste", "gelbe currypaste"], 110, 2, 12, 6, 15, "vegan", { EL: 15, TL: 5 }, [], "Sonstiges")
+];
+
+// Eiweißreiche Startrezepte. Zutaten als Text, wie man sie eintippen würde.
+export const RECIPES = [
+  { id: "r-bowl", name: "Hähnchen-Reis-Bowl mit Brokkoli", servings: 2, minutes: 25, tags: ["Meal Prep"],
+    lines: ["300 g Hähnchenbrust", "150 g Reis", "1 Brokkoli", "2 EL Sojasauce", "1 EL Öl", "1 Knoblauchzehe", "Salz, Pfeffer"],
+    steps: "Reis nach Packung kochen.\nHähnchen in Würfel schneiden, in Öl anbraten, mit Knoblauch und Sojasauce ablöschen.\nBrokkoli in Röschen 4–5 Minuten dämpfen.\nAlles in Schüsseln anrichten." },
+  { id: "r-quark", name: "Protein-Quark mit Beeren", servings: 1, minutes: 5, tags: ["Frühstück", "Snack"],
+    lines: ["250 g Magerquark", "100 g Beeren", "30 g Haferflocken", "1 TL Honig", "50 ml Milch"],
+    steps: "Quark mit Milch cremig rühren.\nBeeren (aufgetaut) und Haferflocken darübergeben, mit Honig süßen." },
+  { id: "r-linsenbolo", name: "Linsen-Bolognese mit Vollkornnudeln", servings: 3, minutes: 30, tags: ["Meal Prep"],
+    lines: ["150 g rote Linsen", "250 g Vollkornnudeln", "1 Dose gehackte Tomaten", "2 EL Tomatenmark", "1 Zwiebel", "2 Knoblauchzehen", "300 ml Gemüsebrühe", "1 EL Öl", "1 TL Oregano"],
+    steps: "Zwiebel und Knoblauch in Öl andünsten, Tomatenmark kurz mitrösten.\nLinsen, Tomaten und Brühe zugeben, 15 Minuten köcheln.\nNudeln kochen und mit der Soße mischen." },
+  { id: "r-thunfischpasta", name: "Thunfisch-Pasta mit Tomaten", servings: 2, minutes: 20, tags: [],
+    lines: ["200 g Nudeln", "2 Dosen Thunfisch", "1 Dose gehackte Tomaten", "1 Zwiebel", "1 EL Öl", "1 TL italienische Kräuter"],
+    steps: "Nudeln kochen.\nZwiebel in Öl anbraten, Tomaten und Kräuter zugeben, 10 Minuten köcheln.\nThunfisch unterheben, mit den Nudeln mischen." },
+  { id: "r-chili", name: "Chili con Carne", servings: 4, minutes: 40, tags: ["Meal Prep"],
+    lines: ["500 g Rinderhack", "1 Dose Kidneybohnen", "1 Dose Mais", "2 Dosen gehackte Tomaten", "2 Paprika", "1 Zwiebel", "2 EL Tomatenmark", "2 TL Chili", "1 EL Öl"],
+    steps: "Hack in Öl krümelig braten, Zwiebel und Paprika mitbraten.\nTomatenmark, Tomaten und Gewürze zugeben, 20 Minuten köcheln.\nBohnen und Mais unterrühren und heiß werden lassen." },
+  { id: "r-kichercurry", name: "Kichererbsen-Spinat-Curry", servings: 3, minutes: 25, tags: [],
+    lines: ["2 Dosen Kichererbsen", "300 g Spinat", "1 Dose Kokosmilch light", "1 Dose gehackte Tomaten", "2 EL Currypaste", "1 Zwiebel", "150 g Reis"],
+    steps: "Reis kochen.\nZwiebel anbraten, Currypaste kurz mitrösten.\nTomaten, Kokosmilch und Kichererbsen zugeben, 10 Minuten köcheln, Spinat unterheben.\nMit Reis servieren." },
+  { id: "r-oats", name: "Overnight Oats mit Skyr", servings: 1, minutes: 5, tags: ["Frühstück"],
+    lines: ["50 g Haferflocken", "150 g Skyr", "100 ml Milch", "1 Banane", "1 EL Erdnussmus"],
+    steps: "Haferflocken mit Skyr und Milch verrühren, über Nacht kühlen.\nMorgens mit Banane und Erdnussmus toppen." },
+  { id: "r-tofupfanne", name: "Tofu-Gemüse-Pfanne mit Reis", servings: 2, minutes: 25, tags: [],
+    lines: ["400 g Tofu", "400 g Gemüsemischung", "150 g Reis", "3 EL Sojasauce", "1 EL Öl", "1 TL Chiliflocken"],
+    steps: "Reis kochen.\nTofu trocken tupfen, würfeln und in Öl knusprig braten.\nGemüse zugeben und 6–8 Minuten mitbraten, mit Sojasauce und Chili abschmecken." },
+  { id: "r-pute", name: "Putengeschnetzeltes mit Kartoffeln", servings: 2, minutes: 30, tags: [],
+    lines: ["300 g Putenbrust", "600 g Kartoffeln", "200 g Skyr", "1 Zwiebel", "150 ml Gemüsebrühe", "1 EL Öl", "1 TL Paprikapulver"],
+    steps: "Kartoffeln kochen.\nPute in Streifen schneiden und in Öl anbraten, Zwiebel mitbraten.\nMit Brühe ablöschen, vom Herd nehmen und Skyr unterrühren, würzen." },
+  { id: "r-pancakes", name: "Protein-Pfannkuchen", servings: 1, minutes: 15, tags: ["Frühstück"],
+    lines: ["50 g Haferflocken", "2 Eier", "125 g Magerquark", "1 Banane", "1 TL Öl"],
+    steps: "Haferflocken, Eier, Quark und Banane fein pürieren.\nIn einer geölten Pfanne kleine Pfannkuchen ausbacken." },
+  { id: "r-harzer", name: "Harzer-Brot mit Hüttenkäse", servings: 1, minutes: 5, tags: ["Snack", "Abendessen"],
+    lines: ["2 Scheiben Vollkornbrot", "100 g Harzer Käse", "100 g Hüttenkäse", "1/2 Paprika"],
+    steps: "Brot mit Hüttenkäse bestreichen, Harzer in Scheiben darauflegen, mit Paprikastreifen belegen." },
+  { id: "r-sojabolo", name: "Soja-Bolognese", servings: 3, minutes: 30, tags: ["Meal Prep"],
+    lines: ["100 g Sojaschnetzel", "250 g Nudeln", "2 Dosen gehackte Tomaten", "2 EL Tomatenmark", "1 Zwiebel", "250 ml Gemüsebrühe", "1 EL Öl", "1 TL Oregano"],
+    steps: "Sojaschnetzel 10 Minuten in heißer Brühe einweichen, ausdrücken.\nZwiebel und Soja in Öl kräftig anbraten, Tomatenmark mitrösten.\nTomaten zugeben, 15 Minuten köcheln, mit Nudeln servieren." }
+];
