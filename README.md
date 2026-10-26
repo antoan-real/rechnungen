@@ -48,9 +48,13 @@ Alles liegt pro Nutzer unter `users/{uid}/…`:
 | `workouts/{id}` | Trainings mit ihren Übungen |
 | `sessions/{id}` | Trainingseinheiten (Gewicht, Sätze, Wiederholungen je Übung) |
 | `uni/plan` | Studienplan: Module, Prüfungsformen, nächste Prüfungen |
-| `journal/{YYYY-MM-DD}` | Dankbarkeit (3 Einträge pro Tag) |
-| `reflections/{week-2026-W44 \| month-2026-10}` | Wochen- und Monatsrückblicke mit Fragen und Antworten |
-| `settings/reflect` | eigene Reflexionsfragen und Reflektor-Erinnerungen |
+| `journal/{YYYY-MM-DD}` | täglicher Check-in: 3× Dankbarkeit, Alltagsmoment, Stimmung |
+| `cards/{id}` | Perspektiv-Karten mit Favorit und Notizen („wo ist mir das begegnet“) |
+| `complaints/{id}` | „Meckern umdrehen“: Ärger, Frage, Karte, Umdeutung |
+| `people/{id}` | Menschen mit Geschichten, Sprüchen, Eigenarten |
+| `reflections/{week-2026-W44}` | Rauszoomen (wöchentlich); ältere Monatsrückblicke bleiben erhalten |
+| `wheel/{YYYY-MM}` | Lebensrad: Bewertung der Lebensbereiche pro Monat |
+| `settings/reflect` | Fragenkatalog, Lebensbereiche, Erinnerungen, Optionen, Geburtsdatum, Karte des Tages |
 | `food/prefs` | eigene/geänderte Zutaten (Nährwerte, Preise, Alternativen), gelöschte Zutaten, ausgeblendete Startrezepte |
 | `recipes/{id}` | eigene und geänderte Rezepte |
 | `transcripts/{id}` | gespeicherte Video-Transkripte mit Titel, Link und Notiz |

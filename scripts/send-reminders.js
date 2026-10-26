@@ -3,7 +3,7 @@
 // Braucht das Secret FIREBASE_SERVICE_ACCOUNT (JSON des Firebase-Dienstkontos).
 import admin from "firebase-admin";
 import { dueReminders } from "../js/modules/habits-core.js";
-import { dueReflect, periodKey, reflectionId } from "../js/modules/reflect-core.js";
+import { dueReflect, periodKey, reflectionId, remindersOf, todaysCard } from "../js/modules/reflect-core.js";
 
 const CATCH_UP_MINUTES = 120; // ältere, verpasste Erinnerungen werden nicht mehr verschickt
 
@@ -56,8 +56,14 @@ for (const [uid, tokens] of byUser) {
     const reflectState = {
       journal: (await base.collection("journal").doc(date).get()).data() || {},
       hasWeek: (await base.collection("reflections").doc(reflectionId("week", periodKey("week", date))).get()).exists,
-      hasMonth: (await base.collection("reflections").doc(reflectionId("month", periodKey("month", date))).get()).exists
+      hasWheel: (await base.collection("wheel").doc(periodKey("month", date)).get()).exists
     };
+    // Karten nur lesen, wenn die Erinnerung „Gedanke des Tages“ an ist
+    if (remindersOf(reflectCfg).card.enabled && !sent["reflect-card"]) {
+      const { card, stored } = todaysCard((await base.collection("cards").get()).docs.map(d => ({ id: d.id, ...d.data() })), reflectCfg, date);
+      reflectState.card = card;
+      if (card && !stored) await base.collection("settings").doc("reflect").set({ today: { date, cardId: card.id } }, { merge: true });
+    }
 
     const messages = [];
     const due = dueReminders(habits, log, date, hhmm, sent, CATCH_UP_MINUTES);

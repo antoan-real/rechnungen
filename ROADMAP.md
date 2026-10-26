@@ -21,10 +21,17 @@ Jeder Bereich ist ein eigenes Modul unter `js/modules/`, Daten liegen pro Nutzer
 ## Phase 3 ✅
 - Rezepte: Zutaten-Datenbank (57 Zutaten, Nährwerte pro 100 g, geschätzte Preise pro kg, Alternativen),
   12 eiweißreiche Startrezepte, Filter und Sortierung (Eiweiß pro €, pro 100 g …), Schnellerfassung per Textzeilen
-- Lebensreflektor: Dankbarkeit täglich, Rauszoomen (Woche/Monat, rotierende und eigene Fragen),
-  Rückblick „vor einem Monat/Jahr“, Verlauf mit Suche, Erinnerungen (App + Push)
+- Lebensreflektor: Dankbarkeit täglich, Rauszoomen, Rückblick, Erinnerungen (App + Push)
+  → überarbeitet (siehe unten)
 
-## Phase 4 ✅ (zum Test)
+## Überarbeitung Lebensreflektor ✅ (zum Test)
+- Perspektiv-Karten (30 Startkarten wortgleich), Gedanke des Tages (Favoriten häufiger, Push), Notizen je Karte
+- Täglicher Check-in: Dankbarkeit, Alltagsmoment (Zeitstrahl), Stimmung 1–5 (abschaltbar)
+- Meckern umdrehen mit Umdeutungsfrage und passender Karte, Übersicht häufiger Ärgernisse
+- Menschen und ihre Geschichten, Rauszoomen (wöchentlich), Lebensrad (monatlich, Radar + Verlauf),
+  Leben in Wochen, Rückblick mit Jahresrückblick und Suche
+
+## Phase 4 ✅
 - News: 11 deutsche Medien per RSS (Abruf über GitHub Actions alle 30 Minuten, kostenlos), Quellen wählbar,
   Gruppierung ähnlicher Meldungen zu Themen, nur Überschrift/Anreißer/Link
 - Video zu Text: Plattform-Erkennung, passende kostenlose Transkript-Seiten (Link wird kopiert, bei YouTube

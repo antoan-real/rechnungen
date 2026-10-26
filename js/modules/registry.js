@@ -7,7 +7,7 @@ export const MODULES = [
   { id: "training", title: "Training", load: () => import("./training.js") },
   { id: "uni", title: "Uni", wide: true, load: () => import("./uni.js") },
   { id: "rezepte", title: "Rezepte", wide: true, load: () => import("./rezepte.js") },
-  { id: "reflektor", title: "Lebensreflektor", load: () => import("./reflektor.js") },
+  { id: "reflektor", title: "Lebensreflektor", wide: true, load: () => import("./reflektor/index.js") },
   { id: "news", title: "News", load: () => import("./news.js") },
   { id: "video", title: "Video zu Text", load: () => import("./video.js") },
   { id: "englisch", title: "Englisch", soon: "Phase 5", text: "Englisch lernen." },
@@ -21,10 +21,12 @@ export const DEFAULT_BAR = ["dashboard", "gewohnheiten", "rechnungen"];
 // Dashboard-Kacheln. "module" lädt die Datei, die die Kachel zeichnet (export widgets = { id: render }).
 export const WIDGETS = [
   { id: "greeting", title: "Begrüßung mit Datum", module: "dashboard", span: 2 },
+  { id: "thought", title: "Gedanke des Tages", module: "reflektor", span: 2 },
   { id: "habits-today", title: "Gewohnheiten heute", module: "gewohnheiten" },
   { id: "next-exam", title: "Nächste Uni-Prüfung", module: "uni" },
   { id: "last-training", title: "Letztes Training", module: "training" },
-  { id: "gratitude", title: "Dankbarkeit heute", module: "reflektor" },
+  { id: "gratitude", title: "Check-in heute (Dankbarkeit)", module: "reflektor" },
+  { id: "memory", title: "Erinnerung (gelegentlich)", module: "reflektor" },
   { id: "open-invoices", title: "Offene Rechnungen", module: "rechnungen" }
 ];
 

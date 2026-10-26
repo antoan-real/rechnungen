@@ -1,0 +1,93 @@
+/* Lebensreflektor: ruhig, warm, persönlich. Papierähnliche Flächen, Serifenschrift für Gedanken und Notizen,
+   viel Luft. Alles unter .rf, die übrige App bleibt unberührt. */
+.rf {
+  --rf-paper: color-mix(in srgb, var(--surface) 88%, #efe2cf);
+  --rf-paper-2: color-mix(in srgb, var(--surface) 80%, #ead8bf);
+  --rf-ink: color-mix(in srgb, var(--ink) 92%, #5a3d22);
+  --rf-warm: #9a5b2e;
+  --rf-warm-soft: color-mix(in srgb, #9a5b2e 12%, var(--surface));
+  --rf-serif: "Literata", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rf {
+  --rf-paper: color-mix(in srgb, var(--surface) 90%, #8a6a45); --rf-paper-2: color-mix(in srgb, var(--surface) 84%, #8a6a45);
+  --rf-ink: var(--ink); --rf-warm: #e0a878; --rf-warm-soft: color-mix(in srgb, #e0a878 14%, var(--surface)) } }
+:root[data-theme="dark"] .rf {
+  --rf-paper: color-mix(in srgb, var(--surface) 90%, #8a6a45); --rf-paper-2: color-mix(in srgb, var(--surface) 84%, #8a6a45);
+  --rf-ink: var(--ink); --rf-warm: #e0a878; --rf-warm-soft: color-mix(in srgb, #e0a878 14%, var(--surface)) }
+
+.rf .card { background: var(--rf-paper); box-shadow: none; border: 1px solid color-mix(in srgb, var(--rf-warm) 14%, var(--line)) }
+.rf h2 { color: var(--rf-warm) }
+.rf .btn.primary { background: var(--rf-warm); border-color: var(--rf-warm); color: #fff }
+:root[data-theme="dark"] .rf .btn.primary { color: #1d140b }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rf .btn.primary { color: #1d140b } }
+.rf .input { background: color-mix(in srgb, var(--rf-paper) 60%, var(--surface)) }
+.rf textarea.input { font-family: var(--rf-serif); font-size: 16px; line-height: 1.65 }
+
+/* Unterbereiche */
+.rf-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; margin: 0 0 16px; padding-bottom: 2px }
+.rf-tabs::-webkit-scrollbar { display: none }
+.rf-tabs button { flex: none; border: 1px solid transparent; background: none; border-radius: 999px; padding: 7px 14px; cursor: pointer; color: var(--muted); font-weight: 500; font-size: 14px }
+.rf-tabs button[aria-selected="true"] { background: var(--rf-warm-soft); color: var(--rf-warm); border-color: color-mix(in srgb, var(--rf-warm) 30%, transparent) }
+.rf-cols { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) }
+@media (min-width: 900px) { .rf-cols { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) } }
+
+/* Perspektiv-Karte */
+.thought { padding: clamp(22px, 5vw, 40px); display: flex; flex-direction: column; gap: 14px }
+.thought .t-cat { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--rf-warm); font-weight: 600 }
+.thought h3 { font-family: var(--rf-serif); font-weight: 600; font-size: clamp(22px, 4.6vw, 28px); line-height: 1.3; color: var(--rf-ink); margin: 0; text-wrap: balance }
+.thought .t-text { font-family: var(--rf-serif); font-size: clamp(17px, 2.2vw, 19px); line-height: 1.8; color: var(--rf-ink); max-width: 62ch; margin: 0; white-space: pre-line; hyphens: manual }
+.thought .t-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px }
+.thought.compact { padding: 18px 20px; gap: 8px }
+.thought.compact h3 { font-size: 19px }
+.thought.compact .t-text { font-size: 16px; line-height: 1.7 }
+.fav { border: 0; background: none; cursor: pointer; font-size: 20px; line-height: 1; color: var(--muted); padding: 4px 6px }
+.fav[aria-pressed="true"] { color: var(--rf-warm) }
+.cardlist { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); align-items: start }
+.cardlist .thought { cursor: pointer; text-align: left; color: inherit; font: inherit; width: 100% }
+.cardlist .thought:hover { border-color: var(--rf-warm) }
+.notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px }
+.notes li { border-left: 3px solid var(--rf-warm); padding: 2px 0 2px 12px }
+.notes li small { color: var(--muted); display: block; margin-bottom: 2px }
+.notes li p, .serif { font-family: var(--rf-serif); line-height: 1.7; margin: 0; white-space: pre-line; color: var(--rf-ink) }
+
+/* Check-in */
+.grat { display: flex; gap: 10px; align-items: flex-start }
+.grat b { font-family: var(--rf-serif); color: var(--rf-warm); font-size: 20px; line-height: 40px; width: 18px; flex: none; text-align: center }
+.grat textarea { min-height: 44px; overflow: hidden; resize: none }
+.mood { display: flex; gap: 8px; flex-wrap: wrap }
+.mood button { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: 0; cursor: pointer; color: var(--muted); font-size: 11px; min-width: 52px }
+.mood button span { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-family: var(--rf-serif); font-size: 16px; color: var(--ink); background: var(--surface) }
+.mood button[aria-pressed="true"] span { background: var(--rf-warm); border-color: var(--rf-warm); color: #fff }
+.mood button[aria-pressed="true"] { color: var(--rf-warm) }
+.saved-note { min-height: 18px }
+
+/* Zeitstrahl / Rückblick */
+.timeline { list-style: none; margin: 0; padding: 0 0 0 18px; border-left: 2px solid color-mix(in srgb, var(--rf-warm) 35%, var(--line)); display: flex; flex-direction: column; gap: 18px }
+.timeline li { position: relative }
+.timeline li::before { content: ""; position: absolute; left: -24px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--rf-warm); border: 2px solid var(--rf-paper) }
+.timeline small { color: var(--muted); display: block; margin-bottom: 3px }
+.tl-month { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--rf-warm); font-weight: 600; margin: 8px 0 -6px -18px }
+.lookback { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 12px; background: var(--rf-paper-2) }
+.lookback small { color: var(--rf-warm); font-weight: 600 }
+
+/* Menschen */
+.people { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)) }
+.person { text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; color: inherit; font: inherit; width: 100% }
+.person b { font-family: var(--rf-serif); font-size: 19px; font-weight: 600 }
+.person:hover { border-color: var(--rf-warm) }
+
+/* Lebensrad & Leben in Wochen */
+.radar text { fill: var(--muted); font-size: 11px; font-family: var(--f-ui) }
+.radar .ring { fill: none; stroke: var(--line); stroke-width: 1 }
+.radar .now { fill: color-mix(in srgb, var(--rf-warm) 14%, transparent); stroke: var(--rf-warm); stroke-width: 2; stroke-linejoin: round }
+.radar .prev { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linejoin: round }
+.radar .dot { fill: var(--rf-warm); stroke: var(--rf-paper); stroke-width: 2 }
+.sliders { display: flex; flex-direction: column; gap: 12px }
+.sliders label { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 4px 10px; align-items: center }
+.sliders label span:first-child { font-size: 14px }
+.sliders input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--rf-warm) }
+.sliders b { font-family: var(--f-num); text-align: right }
+.weeks-wrap { overflow-x: auto }
+.weeks-wrap canvas { display: block; max-width: 100% }
+.legend-row { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted) }
+.legend-row i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px }
