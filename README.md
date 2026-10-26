@@ -53,6 +53,8 @@ Alles liegt pro Nutzer unter `users/{uid}/…`:
 | `settings/reflect` | eigene Reflexionsfragen und Reflektor-Erinnerungen |
 | `food/prefs` | eigene/geänderte Zutaten (Nährwerte, Preise, Alternativen), gelöschte Zutaten, ausgeblendete Startrezepte |
 | `recipes/{id}` | eigene und geänderte Rezepte |
+| `transcripts/{id}` | gespeicherte Video-Transkripte mit Titel, Link und Notiz |
+| `settings/app.newsSources` | gewählte Nachrichtenquellen |
 
 ## Firebase einrichten (einmalig)
 
@@ -90,6 +92,14 @@ Monatsrückblick) unter „Fragen & Erinnerungen“; sie kommen nur, wenn der Ei
 
 Hinweis: GitHub pausiert geplante Workflows in öffentlichen Repos nach 60 Tagen ohne Commit. Dann unter Actions
 den Workflow wieder aktivieren.
+
+## News
+
+Browser dürfen die RSS-Feeds der Zeitungen nicht direkt abrufen (CORS). Deshalb holt der Workflow
+`.github/workflows/news.yml` die Feeds alle 30 Minuten mit `scripts/fetch-news.js` ab und legt `news.json` in den
+Branch `news-data` (immer nur ein Commit, das Repo wächst nicht). Die App liest die Datei von
+`raw.githubusercontent.com`. Gespeichert werden nur Überschrift, Anreißer aus dem Feed, Link und Zeit.
+Quellen und Feed-Adressen stehen in `js/modules/news-core.js`, die Themen-Gruppierung passiert in der App.
 
 ## Lokal testen
 

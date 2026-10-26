@@ -97,6 +97,7 @@ h3 { font-size: 16px; font-weight: 600 }
 @media (min-width: 760px) { .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
 .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 14px; cursor: pointer; font-weight: 500; white-space: nowrap; color: var(--ink); min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px }
 .btn:hover { border-color: var(--accent) }
+a.btn { text-decoration: none }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) }
 .btn.danger { color: var(--danger) }
 .btn.ghost { border-color: transparent; background: transparent }
@@ -326,3 +327,14 @@ table.data th { color: var(--muted); font-weight: 600; font-size: 12px }
 /* Hinweise nicht über die Knöpfe eines offenen Dialogs legen */
 body:has(.overlay) #toast-root { bottom: auto; top: calc(16px + env(safe-area-inset-top, 0px)) }
 .toast:not(:has(button)) { pointer-events: none }
+
+/* ---------- News ---------- */
+.topic { display: flex; flex-direction: column; gap: 8px }
+.topic .t-head { font-size: 17px; font-weight: 600; color: var(--ink); text-decoration: none; line-height: 1.35; text-wrap: pretty }
+.topic .t-head:hover { color: var(--accent); text-decoration: underline }
+.t-teaser { margin: 0; color: var(--muted); line-height: 1.5 }
+.topic details summary { cursor: pointer; color: var(--accent); font-weight: 500 }
+.t-more { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px }
+.t-more li { border-left: 3px solid var(--line); padding-left: 10px; display: flex; flex-direction: column; gap: 3px }
+.t-more a { color: var(--ink); font-weight: 500; text-decoration: none }
+.t-more a:hover { color: var(--accent); text-decoration: underline }

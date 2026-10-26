@@ -18,15 +18,17 @@ Jeder Bereich ist ein eigenes Modul unter `js/modules/`, Daten liegen pro Nutzer
   Gesamtfortschritt (Volumen pro Woche, Ø Steigerung des Höchstgewichts)
 - Uni-Modulübersicht: Raster nach Quartalsblöcken, Prüfungsformen mit Farben, Noten, „Meine nächsten Prüfungen“
 
-## Phase 3 ✅ (zum Test)
+## Phase 3 ✅
 - Rezepte: Zutaten-Datenbank (57 Zutaten, Nährwerte pro 100 g, geschätzte Preise pro kg, Alternativen),
   12 eiweißreiche Startrezepte, Filter und Sortierung (Eiweiß pro €, pro 100 g …), Schnellerfassung per Textzeilen
 - Lebensreflektor: Dankbarkeit täglich, Rauszoomen (Woche/Monat, rotierende und eigene Fragen),
   Rückblick „vor einem Monat/Jahr“, Verlauf mit Suche, Erinnerungen (App + Push)
 
-## Phase 4
-- News: RSS-Feeds deutscher Medien, Gruppierung nach Thema
-- Video zu Text: Transkript-Seiten pro Plattform, Verlauf mit Suche
+## Phase 4 ✅ (zum Test)
+- News: 11 deutsche Medien per RSS (Abruf über GitHub Actions alle 30 Minuten, kostenlos), Quellen wählbar,
+  Gruppierung ähnlicher Meldungen zu Themen, nur Überschrift/Anreißer/Link
+- Video zu Text: Plattform-Erkennung, passende kostenlose Transkript-Seiten (Link wird kopiert, bei YouTube
+  vorausgefüllt), Speichern mit Titel/Link/Notiz, Verlauf mit Volltextsuche
 
 ## Phase 5
 - Englisch lernen

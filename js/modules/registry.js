@@ -8,8 +8,8 @@ export const MODULES = [
   { id: "uni", title: "Uni", wide: true, load: () => import("./uni.js") },
   { id: "rezepte", title: "Rezepte", wide: true, load: () => import("./rezepte.js") },
   { id: "reflektor", title: "Lebensreflektor", load: () => import("./reflektor.js") },
-  { id: "news", title: "News", soon: "Phase 4", text: "Nachrichten großer deutscher Medien, nach Themen gruppiert." },
-  { id: "video", title: "Video zu Text", soon: "Phase 4", text: "Transkripte von YouTube, TikTok und Reels sammeln." },
+  { id: "news", title: "News", load: () => import("./news.js") },
+  { id: "video", title: "Video zu Text", load: () => import("./video.js") },
   { id: "englisch", title: "Englisch", soon: "Phase 5", text: "Englisch lernen." },
   { id: "trading", title: "Trading", soon: "Phase 5", text: "Trading." }
 ];
