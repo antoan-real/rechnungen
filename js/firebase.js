@@ -19,7 +19,7 @@ const firebaseConfig = {
 };
 
 // Öffentlicher Web-Push-Schlüssel (Firebase → Projekteinstellungen → Cloud Messaging → Web-Push-Zertifikate)
-export const VAPID_KEY = "";
+export const VAPID_KEY = "BKw-YZNxEKKmz0L1k4br5e_DUIDqATtKO7V1c_jpHQp2fwFNfTZVsQ4u4ffDh1K7FwQxUDXko5ZfDHBAP6bO3bk";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
