@@ -45,6 +45,23 @@ const parseGrade = v => { const n = parseFloat(String(v ?? "").replace(",", ".")
 const fmtGrade = n => n == null ? "" : n.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
 const typeOf = (plan, id) => plan.examTypes.find(t => t.id === id) || null;
 
+/** Semester = zwei Blöcke à drei Monate = sechs Module */
+const semesterOf = block => Math.floor(block / 2);
+function semesterRange(plan, sem) {
+  const a = blockRange(plan, sem * 2), b = blockRange(plan, sem * 2 + 1);
+  const lab = d => `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return { label: `${lab(a.from)} – ${lab(new Date(b.to.getFullYear(), b.to.getMonth(), 1))}`, from: a.from, to: b.to };
+}
+/** Soll-Stand: alle Module aus Blöcken, die bereits vorbei sind, hätten bestanden sein sollen */
+function schedule(plan, now = new Date()) {
+  const blocks = [...new Set(plan.modules.map(m => m.block))].sort((a, b) => a - b);
+  const done = blocks.filter(b => blockRange(plan, b).to < now);
+  const cur = blocks.find(b => { const r = blockRange(plan, b); return now >= r.from && now <= r.to; });
+  const due = plan.modules.filter(m => done.includes(m.block)).length;
+  const dueEnd = cur == null ? due : due + plan.modules.filter(m => m.block === cur).length;
+  return { due, dueEnd, cur, curRange: cur == null ? null : blockRange(plan, cur) };
+}
+
 function stats(plan) {
   const passed = plan.modules.filter(m => m.passed);
   const grades = passed.map(m => m.grade).filter(g => g != null);
@@ -81,21 +98,34 @@ export function mount(el, ctx) {
 
   function render() {
     if (!plan) return;
-    const body = $("#un-body", el), st = stats(plan), now = new Date();
+    const body = $("#un-body", el), st = stats(plan), now = new Date(), sc = schedule(plan, now);
+    const gap = sc.due - st.passed, gapEnd = sc.dueEnd - st.passed;
     const blocks = [...new Set(plan.modules.map(m => m.block))].sort((a, b) => a - b);
     body.innerHTML = `
       <section class="card stack uni-progress">
         <div class="row" style="justify-content:space-between"><b style="font-size:calc(17px * var(--fs))">${st.passed} von ${st.total} Modulen bestanden</b>
           <span class="muted">${st.avg == null ? "Noch keine Noten" : `Notenschnitt <b class="num" style="color:var(--ink)">${fmtGrade(Math.round(st.avg * 100) / 100)}</b> · aus ${st.gradeN} Note${st.gradeN === 1 ? "" : "n"}, ungewichtet`}</span></div>
-        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${st.total}" aria-valuenow="${st.passed}"><i style="width:${st.total ? st.passed / st.total * 100 : 0}%"></i></div>
+        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${st.total}" aria-valuenow="${st.passed}"><i style="width:${st.total ? st.passed / st.total * 100 : 0}%"></i>${sc.due ? `<s class="soll" style="left:${sc.due / st.total * 100}%" title="Soll-Stand: ${sc.due}"></s>` : ""}</div>
+        <div class="soll-box">
+          <div class="kv"><b>${st.passed}</b><span>bestanden</span></div>
+          <div class="kv"><b>${sc.due}</b><span>hättest du bis jetzt bestehen müssen</span></div>
+          <div class="kv ${gap > 0 ? "behind" : "ahead"}"><b>${gap > 0 ? gap : gap < 0 ? "+" + -gap : "0"}</b><span>${gap > 0 ? `fehlen noch, um auf dem aktuellen Stand zu sein` : gap < 0 ? `Prüfungen vor dem Plan` : `genau im Plan`}</span></div>
+        </div>
+        ${sc.curRange ? `<p class="note">Aktuell: ${esc(sc.curRange.label)} (${semesterOf(sc.cur) + 1}. Semester). Bis Ende ${MONTHS[sc.curRange.to.getMonth()]} ${sc.curRange.to.getFullYear()} sind es laut Plan ${sc.dueEnd} Module${gapEnd > 0 ? ` – dafür fehlen ${gapEnd}` : ""}.</p>` : ""}
         <div class="legend">${plan.examTypes.map(t => `<span><i style="background:${esc(t.color)}"></i>${esc(t.name)}</span>`).join("")}<span><i style="background:var(--line)"></i>noch offen</span><span><i style="background:var(--ok)"></i>bestanden</span></div>
       </section>
       <section class="card"><div class="uni-grid" id="un-grid">${blocks.map(b => {
-        const r = blockRange(plan, b), isNow = now >= r.from && now <= r.to;
+        const r = blockRange(plan, b), isNow = now >= r.from && now <= r.to, sem = semesterOf(b);
         const mods = plan.modules.filter(m => m.block === b).sort((x, y) => x.slot - y.slot);
-        return `<div class="blk ${isNow ? "now" : ""}">${esc(r.label)}${isNow ? "<small>aktuell</small>" : ""}</div>` + mods.map(m => {
+        let head = "";
+        if (b % 2 === 0 || b === blocks[0]) {
+          const sr = semesterRange(plan, sem), semMods = plan.modules.filter(m => semesterOf(m.block) === sem);
+          const semNow = now >= sr.from && now <= sr.to;
+          head = `<div class="sem ${semNow ? "now" : ""}"><b>${sem + 1}. Semester</b><span>${esc(sr.label)}</span><span class="sem-count">${semMods.filter(m => m.passed).length}/${semMods.length} bestanden${semNow ? " · aktuell" : ""}</span></div>`;
+        }
+        return head + `<div class="blk ${isNow ? "now" : ""}">${esc(r.label)}${isNow ? "<small>Wir sind hier</small>" : ""}</div>` + mods.map(m => {
           const t = typeOf(plan, m.examType);
-          return `<div class="mod ${m.passed ? "passed" : ""}" data-id="${esc(m.id)}" role="button" tabindex="0" style="${t ? `--mod:${esc(t.color)}` : ""}" aria-label="${esc(m.name)}${m.passed ? ", bestanden" : ""}">
+          return `<div class="mod ${m.passed ? "passed" : ""} ${isNow ? "cur" : ""} ${!m.passed && r.to < now ? "late" : ""}" data-id="${esc(m.id)}" role="button" tabindex="0" style="${t ? `--mod:${esc(t.color)}` : ""}" aria-label="${esc(m.name)}${m.passed ? ", bestanden" : ""}">
             <span class="m-name">${esc(m.name)}</span>
             <span class="m-foot"><span>${t ? esc(t.name) : ""}${m.grade != null ? ` <span class="m-grade">${fmtGrade(m.grade)}</span>` : ""}</span>
             <button type="button" class="m-check" data-check aria-pressed="${m.passed}" aria-label="${esc(m.name)} ${m.passed ? "nicht mehr als bestanden markieren" : "als bestanden abhaken"}"></button></span></div>`;
@@ -112,7 +142,7 @@ export function mount(el, ctx) {
             <button type="button" class="btn icon small ghost" data-rm aria-label="${esc(m.name)} aus der Liste nehmen">${icon("x")}</button></li>`;
         }).join("")}</ul>
         ${plan.upcoming.length ? "" : `<p class="muted" style="margin:0">Noch keine Prüfungen geplant.</p>`}
-        <div class="row" style="flex-wrap:nowrap"><select class="input" id="un-add" aria-label="Offenes Modul wählen"><option value="">Offenes Modul hinzufügen …</option>${plan.modules.filter(m => !m.passed && !plan.upcoming.some(u => u.moduleId === m.id)).map(m => `<option value="${esc(m.id)}">${esc(blockRange(plan, m.block).label)} · ${esc(m.name)}</option>`).join("")}</select>
+        <div class="row" style="flex-wrap:nowrap"><select class="input" id="un-add" aria-label="Offenes Modul wählen"><option value="">Offenes Modul hinzufügen …</option>${plan.modules.filter(m => !m.passed && !plan.upcoming.some(u => u.moduleId === m.id)).map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("")}</select>
           <button type="button" class="btn" id="un-add-btn">Hinzufügen</button></div>
       </section>`;
     bind(body);

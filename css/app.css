@@ -328,8 +328,23 @@ table.data th { color: var(--muted); font-weight: 600; font-size: calc(12px * va
 .selchips .chip i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0 }
 
 /* ---------- Uni ---------- */
-.uni-progress .bar { height: 10px; border-radius: 999px; background: var(--chart-off); overflow: hidden }
+.uni-progress .bar { height: 10px; border-radius: 999px; background: var(--chart-off); overflow: visible; position: relative }
+.uni-progress .bar .soll { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--warn); text-decoration: none }
+.soll-box { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px }
+.soll-box .kv { background: var(--surface-2); border-radius: 16px; padding: 12px }
+.soll-box .kv b { font-size: calc(30px * var(--fs)) }
+.soll-box .kv.behind b { color: var(--warn) }
+.soll-box .kv.ahead b { color: var(--ok) }
+.uni-grid .sem { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 14px 0 6px; border-top: 1px solid var(--line); margin-top: 6px }
+.uni-grid .sem:first-child { border-top: 0; margin-top: 0; padding-top: 0 }
+.uni-grid .sem b { font-size: calc(16px * var(--fs)); font-weight: 700 }
+.uni-grid .sem span { font-size: calc(13px * var(--fs)); color: var(--muted) }
+.uni-grid .sem .sem-count { margin-left: auto; font-weight: 600 }
+.uni-grid .sem.now .sem-count { color: var(--accent) }
+.mod.cur { outline: 2px solid var(--sel); outline-offset: 1px }
+.mod.late .m-foot { color: var(--warn) }
 .uni-progress .bar i { display: block; height: 100%; background: var(--chart-on); border-radius: 999px }
+@container (max-width: 520px) { .soll-box .kv b { font-size: calc(24px * var(--fs)) } .soll-box .kv span { font-size: calc(12px * var(--fs)) } }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: calc(13px * var(--fs)); align-items: center }
 .legend span { display: inline-flex; gap: 6px; align-items: center }
 .legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block }
