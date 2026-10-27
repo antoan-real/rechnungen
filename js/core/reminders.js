@@ -54,7 +54,7 @@ export function startReminders(ctx) {
     if (due.length) messages.push({
       keys: due.map(h => h.id), url: "./#gewohnheiten", tag: `habits-${d}-${due.map(h => h.id).join("-")}`,
       title: due.length === 1 ? "Erinnerung" : `${due.length} Gewohnheiten offen`,
-      body: due.map(h => (h.emoji ? h.emoji + " " : "") + h.name).join(", ")
+      body: due.map(h => h.name).join(", ")
     });
     for (const r of dueReflect(reflectCfg, { ...s, card: todaysCard(cards, reflectCfg, d).card }, d, hhmm, s.sent)) messages.push({ keys: [r.key], url: "./#reflektor", tag: `${r.key}-${d}`, title: r.title, body: r.body });
     if (!messages.length) return;

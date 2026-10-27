@@ -13,10 +13,10 @@ Reines HTML, CSS und JavaScript (ES-Module), kein Build-Schritt.
 
 ```
 index.html               App-Hülle (Kopfleiste, Login, Bereich)
-css/app.css              gemeinsame Gestaltung inkl. Dark Mode
+css/app.css              Design-System: Farb-Tokens (Hell/Dunkel), Schrift, Bausteine
 js/app.js                Anmeldung, Navigation mit „Mehr“-Menü, Router (#bereich)
 js/firebase.js           Firebase-Konfiguration
-js/core/                 Datenzugriff, Einstellungen, Erinnerungen, Datums- und UI-Helfer
+js/core/                 Datenzugriff, Einstellungen, Erinnerungen, Datums- und UI-Helfer, Linien-Icons
 js/modules/registry.js   Liste aller Bereiche und Startseiten-Kacheln
 js/modules/*.js          ein Bereich pro Datei bzw. Ordner
 sw.js                    Service Worker (Offline-Start)

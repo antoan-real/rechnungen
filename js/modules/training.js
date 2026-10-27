@@ -10,6 +10,7 @@ import { $, $$, esc, openSheet, toast } from "../core/ui.js";
 import { watchCollection, put, merge, remove, newId } from "../core/data.js";
 import { today, addDays, parseDay, weekday, daysBetween, isoWeek } from "../core/dates.js";
 import { lineChart, columnChart, seriesColor } from "../core/chart.js";
+import { icon } from "../core/icons.js";
 
 const TEMPLATES = [
   { name: "Push", exercises: ["Bankdrücken", "Schulterdrücken", "Schrägbankdrücken Kurzhantel", "Trizepsdrücken am Kabel"] },
@@ -76,7 +77,7 @@ export function mount(el, ctx) {
   let cleanups = [];
   el.innerHTML = `
     <div class="page-head"><div><h1>Training</h1><p id="tr-sub"></p></div>
-      <button type="button" class="btn primary" id="tr-new">+ Einheit eintragen</button></div>
+      <button type="button" class="btn primary" id="tr-new">${icon("plus")} Einheit eintragen</button></div>
     <div class="seg" id="tr-tabs" role="tablist" style="margin-bottom:14px">
       <button type="button" data-t="log">Verlauf</button><button type="button" data-t="progress">Fortschritt</button><button type="button" data-t="plans">Trainings</button>
     </div>
@@ -130,7 +131,7 @@ export function mount(el, ctx) {
     body.innerHTML = `<div class="stack">
       <section class="card stack"><h2>Gesamtfortschritt</h2>
         <div class="tiles">
-          <div class="stat"><span>Volumen diese Woche</span><b>${fmt(m.thisWeek, 0)} kg</b><small class="${delta == null ? "" : delta >= 0 ? "up" : "down"}">${delta == null ? (m.lastWeek ? `Vorwoche: ${fmt(m.lastWeek, 0)} kg` : "Vorwoche: keine Daten") : `${delta >= 0 ? "▲ +" : "▼ "}${fmt(delta)} % zur Vorwoche`}</small></div>
+          <div class="stat"><span>Volumen diese Woche</span><b>${fmt(m.thisWeek, 0)} kg</b><small class="${delta == null ? "" : delta >= 0 ? "up" : "down"}">${delta == null ? (m.lastWeek ? `Vorwoche: ${fmt(m.lastWeek, 0)} kg` : "Vorwoche: keine Daten") : `${delta >= 0 ? "+" : "−"}${fmt(Math.abs(delta))} % zur Vorwoche`}</small></div>
           <div class="stat"><span>Ø Steigerung Höchstgewicht</span><b>${m.avgChange == null ? "–" : (m.avgChange >= 0 ? "+" : "") + fmt(m.avgChange) + " %"}</b><small>${m.avgChange == null ? "braucht Daten aus 8 Wochen" : `letzte 4 Wochen ggü. davor · ${m.changeN} Übung${m.changeN === 1 ? "" : "en"}`}</small></div>
           <div class="stat"><span>Einheiten diese Woche</span><b>${m.countByWeek[m.weeks[11]]}</b><small>Vorwoche: ${m.countByWeek[m.weeks[10]]}</small></div>
         </div>
@@ -170,13 +171,13 @@ export function mount(el, ctx) {
       <form class="card row" id="wk-add" style="flex-wrap:nowrap"><input class="input" type="text" id="wk-name" placeholder="Neues Training, z. B. Oberkörper" aria-label="Name des Trainings"><button type="submit" class="btn primary">Anlegen</button></form>
       ${st.workouts.map((w, i) => `<section class="card wk" data-id="${esc(w.id)}">
         <div class="row" style="flex-wrap:nowrap"><input class="input" type="text" value="${esc(w.name)}" data-f="wname" aria-label="Name des Trainings" style="font-weight:600">
-          <button type="button" class="btn icon small" data-wmv="-1" ${i === 0 ? "disabled" : ""} aria-label="Training nach oben">↑</button>
-          <button type="button" class="btn icon small" data-wmv="1" ${i === st.workouts.length - 1 ? "disabled" : ""} aria-label="Training nach unten">↓</button>
-          <button type="button" class="btn icon small danger" data-wdel aria-label="Training löschen">×</button></div>
+          <button type="button" class="btn icon small" data-wmv="-1" ${i === 0 ? "disabled" : ""} aria-label="Training nach oben">${icon("arrow-up")}</button>
+          <button type="button" class="btn icon small" data-wmv="1" ${i === st.workouts.length - 1 ? "disabled" : ""} aria-label="Training nach unten">${icon("arrow-down")}</button>
+          <button type="button" class="btn icon small danger" data-wdel aria-label="Training löschen">${icon("x")}</button></div>
         ${(w.exercises || []).map((x, j) => `<div class="wk-ex" data-ex="${esc(x.id)}"><input class="input" type="text" value="${esc(x.name)}" data-f="exname" aria-label="Übung">
-          <button type="button" class="btn icon small" data-emv="-1" ${j === 0 ? "disabled" : ""} aria-label="Übung nach oben">↑</button>
-          <button type="button" class="btn icon small" data-emv="1" ${j === w.exercises.length - 1 ? "disabled" : ""} aria-label="Übung nach unten">↓</button>
-          <button type="button" class="btn icon small danger" data-edel aria-label="Übung löschen">×</button></div>`).join("")}
+          <button type="button" class="btn icon small" data-emv="-1" ${j === 0 ? "disabled" : ""} aria-label="Übung nach oben">${icon("arrow-up")}</button>
+          <button type="button" class="btn icon small" data-emv="1" ${j === w.exercises.length - 1 ? "disabled" : ""} aria-label="Übung nach unten">${icon("arrow-down")}</button>
+          <button type="button" class="btn icon small danger" data-edel aria-label="Übung löschen">${icon("x")}</button></div>`).join("")}
         <div class="wk-ex"><input class="input" type="text" data-f="newex" placeholder="+ Übung hinzufügen" aria-label="Neue Übung"><button type="button" class="btn small" data-eadd>Hinzufügen</button></div>
       </section>`).join("")}</div>`;
     const root = body.firstElementChild;
@@ -304,20 +305,58 @@ function openSession(st, session) {
   }, { label: "Einheit eintragen", noFocus: true });
 }
 
-/* ---------- Kachel für die Startseite ---------- */
+/* ---------- Kachel für die Startseite: Höchstgewicht einer Übung, letzte 8 Wochen ---------- */
+/** Wochenhöchstwerte einer Übung (8 Wochen bis heute) */
+function liftWeeks(st, exId) {
+  const ws = weekStart(today());
+  return Array.from({ length: 8 }, (_, i) => {
+    const from = addDays(ws, -7 * (7 - i)), to = addDays(from, 6);
+    const vals = st.sessions.filter(s => s.date >= from && s.date <= to).flatMap(s => (s.entries || []).filter(e => e.exId === exId && e.weight > 0).map(e => ({ w: e.weight, date: s.date })));
+    const best = vals.sort((a, b) => b.w - a.w || b.date.localeCompare(a.date))[0];
+    return { from, value: best?.w || 0, date: vals.map(v => v.date).sort().pop() || "" };
+  });
+}
 export const widgets = {
   "last-training"(el, ctx) {
-    el.innerHTML = `<div class="tile-head"><h2>Letztes Training</h2></div><div class="empty">Lade …</div>`;
-    const sub = subscribe(st => {
+    el.innerHTML = `<div class="tile-head"><h2>Training</h2></div><div class="empty">Lade …</div>`;
+    let exIdx = 0, pick = null;
+    const sub = subscribe(st => draw(st));
+    function draw(st) {
       if (!st.ready.w || !st.ready.s) return;
-      const s = st.sessions[0];
-      el.innerHTML = `<div class="tile-head"><h2>Letztes Training</h2><a href="#training">Alle</a></div>` + (s
-        ? `<div><b style="font-size:17px">${esc(s.workoutName || "Training")}</b> <span class="muted">· ${ago(s.date)} (${esc(dateLabel(s.date))})</span></div>
-           <ul class="sortlist">${(s.entries || []).slice(0, 4).map(e => `<li><span class="name">${esc(e.name)}</span><span class="num">${entryText(e)}</span></li>`).join("")}</ul>`
-        : `<p class="muted" style="margin:0">Noch keine Einheit eingetragen.</p>`)
-        + `<div><button type="button" class="btn small" data-new>+ Einheit eintragen</button></div>`;
-      el.querySelector("[data-new]").onclick = () => { sessionStorage.setItem("tr-open-new", "1"); ctx.navigate("training"); };
-    });
+      const since = addDays(today(), -56);
+      // Übungen mit Gewicht der letzten 8 Wochen, die häufigste zuerst
+      const counts = {};
+      for (const s of st.sessions) if (s.date >= since) for (const e of s.entries || []) if (e.weight > 0) counts[e.exId] = (counts[e.exId] || 0) + 1;
+      const exs = allExercises(st).filter(e => counts[e.id]).sort((a, b) => counts[b.id] - counts[a.id]);
+      const last = st.sessions[0];
+      const lastLine = last ? `<p class="t-sub">Zuletzt: ${esc(last.workoutName || "Training")}, ${ago(last.date)}</p>` : "";
+      if (!exs.length) {
+        el.innerHTML = `<div class="tile-head"><h2>Training</h2><a href="#training">Öffnen ${icon("chevron-right", { size: 14 })}</a></div>
+          <p class="muted" style="margin:0">${last ? "In den letzten 8 Wochen gibt es keine Werte mit Gewicht." : "Noch keine Einheit eingetragen."}</p>${lastLine}
+          <div><button type="button" class="btn small" data-new>${icon("plus", { size: 16 })} Einheit eintragen</button></div>`;
+        el.querySelector("[data-new]").onclick = () => { sessionStorage.setItem("tr-open-new", "1"); ctx.navigate("training"); };
+        return;
+      }
+      let saved = pick; try { saved = saved || localStorage.getItem("tr-dash-ex"); } catch (e) {}
+      const savedIdx = exs.findIndex(e => e.id === saved);
+      exIdx = savedIdx >= 0 ? savedIdx : 0;
+      const ex = exs[exIdx], weeks = liftWeeks(st, ex.id), withVal = weeks.filter(w => w.value > 0);
+      const first = withVal[0], cur = withVal[withVal.length - 1], diff = cur.value - first.value;
+      const vals = withVal.map(w => w.value), lo = Math.min(...vals), hi = Math.max(...vals);
+      const h = v => !v ? 8 : hi === lo ? 70 : 28 + 72 * (v - lo) / (hi - lo);
+      const curIdx = weeks.lastIndexOf(cur);
+      const sign = diff > 0 ? "+" : diff < 0 ? "−" : "±";
+      el.innerHTML = `<div class="tile-head"><h2>Höchstgewicht · 8 Wochen</h2>${exs.length > 1 ? `<button type="button" class="btn small ghost" data-next aria-label="Nächste Übung" style="margin:-8px -10px -8px 0">Übung ${icon("chevron-right", { size: 14 })}</button>` : `<a href="#training">Alle ${icon("chevron-right", { size: 14 })}</a>`}</div>
+        <div><p class="t-title" style="font-size:20px">${esc(ex.name)}</p><p class="t-sub">${withVal.length > 1 ? `${sign}${fmt(Math.abs(diff))} kg in ${weeks.length - weeks.indexOf(first)} Wochen` : "erste Werte in diesem Zeitraum"}</p></div>
+        <div class="minibars" role="img" aria-label="${esc(ex.name)}: ${weeks.map(w => w.value ? fmt(w.value) + " kg" : "keine Einheit").join(", ")}">${weeks.map((w, i) => `<i class="${i === curIdx ? "on" : ""}" style="height:${h(w.value)}%" title="ab ${esc(dateLabel(w.from))}: ${w.value ? fmt(w.value) + " kg" : "keine Einheit"}"></i>`).join("")}</div>
+        <div class="minibars-foot"><span>${fmt(first.value)} kg</span><span>${cur.date === today() ? "heute" : esc(ago(cur.date))} <b>${fmt(cur.value)} kg</b></span></div>
+        ${lastLine}`;
+      el.querySelector("[data-next]")?.addEventListener("click", () => {
+        pick = exs[(exIdx + 1) % exs.length].id;
+        try { localStorage.setItem("tr-dash-ex", pick); } catch (e) {}
+        draw(st);
+      });
+    }
     return sub.stop;
   }
 };

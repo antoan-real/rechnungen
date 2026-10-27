@@ -19,15 +19,15 @@ export const SETTINGS_MODULE = { id: "einstellungen", title: "Einstellungen", lo
 export const DEFAULT_BAR = ["dashboard", "gewohnheiten", "rechnungen"];
 
 // Dashboard-Kacheln. "module" lädt die Datei, die die Kachel zeichnet (export widgets = { id: render }).
+// size "small": am Handy zwei nebeneinander. Datum und Begrüßung stehen im Kopfbereich der App.
 export const WIDGETS = [
-  { id: "greeting", title: "Begrüßung mit Datum", module: "dashboard", span: 2 },
-  { id: "thought", title: "Gedanke des Tages", module: "reflektor", span: 2 },
   { id: "habits-today", title: "Gewohnheiten heute", module: "gewohnheiten" },
-  { id: "next-exam", title: "Nächste Uni-Prüfung", module: "uni" },
-  { id: "last-training", title: "Letztes Training", module: "training" },
+  { id: "last-training", title: "Training: Fortschritt", module: "training" },
+  { id: "next-exam", title: "Nächste Uni-Prüfung", module: "uni", size: "small" },
+  { id: "open-invoices", title: "Offene Rechnungen", module: "rechnungen", size: "small" },
+  { id: "thought", title: "Gedanke des Tages", module: "reflektor" },
   { id: "gratitude", title: "Check-in heute (Dankbarkeit)", module: "reflektor" },
-  { id: "memory", title: "Erinnerung (gelegentlich)", module: "reflektor" },
-  { id: "open-invoices", title: "Offene Rechnungen", module: "rechnungen" }
+  { id: "memory", title: "Erinnerung (gelegentlich)", module: "reflektor" }
 ];
 
 export const moduleById = id => id === SETTINGS_MODULE.id ? SETTINGS_MODULE : MODULES.find(m => m.id === id);

@@ -1,6 +1,7 @@
 // Einstellungen: Name, Design, Navigation, Dashboard-Kacheln, Benachrichtigungen, Installation, Konto.
 import { $, $$, esc } from "../core/ui.js";
-import { navLayout, dashboardLayout } from "../core/settings.js";
+import { navLayout, dashboardLayout, applyTheme } from "../core/settings.js";
+import { icon } from "../core/icons.js";
 import { moduleById } from "./registry.js";
 import { auth, sendPasswordResetEmail } from "../firebase.js";
 import { pushConfigured, pushSupported, pushOnHere, enablePush, disablePush } from "../core/push.js";
@@ -12,10 +13,10 @@ export function mount(el, ctx) {
     <div class="grid-2">
       <section class="card stack">
         <h2>Allgemein</h2>
-        <label class="field"><span>Dein Name (für die Begrüßung)</span><input class="input" type="text" id="st-name" autocomplete="given-name"></label>
+        <label class="field"><span>Dein Name (für „Hey …“ oben)</span><input class="input" type="text" id="st-name" autocomplete="given-name"></label>
         <div class="field"><span>Design</span>
           <div class="seg" id="st-theme" role="group" aria-label="Design">
-            <button type="button" data-v="system">System</button><button type="button" data-v="light">Hell</button><button type="button" data-v="dark">Dunkel</button>
+            <button type="button" data-v="light">Hell</button><button type="button" data-v="dark">Dunkel</button><button type="button" data-v="system">Automatisch</button>
           </div></div>
       </section>
 
@@ -62,8 +63,11 @@ export function mount(el, ctx) {
   drawTheme(s.theme);
   $("#st-theme", el).addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
-    drawTheme(b.dataset.v); ctx.saveSettings({ theme: b.dataset.v });
+    drawTheme(b.dataset.v); applyTheme(b.dataset.v); ctx.saveSettings({ theme: b.dataset.v });
   });
+  // Umschalten über die Kopfleiste spiegeln
+  const onTheme = () => drawTheme(document.documentElement.dataset.theme || "system");
+  document.addEventListener("db-theme", onTheme);
 
   /* Navigation */
   function drawNav() {
@@ -72,8 +76,8 @@ export function mount(el, ctx) {
       const m = moduleById(id);
       return `<li data-id="${id}">
         <span class="name">${esc(m.title)}${m.soon ? `<small>kommt in ${esc(m.soon)}</small>` : ""}</span>
-        <button type="button" class="btn icon small" data-mv="-1" ${i === 0 ? "disabled" : ""} aria-label="${esc(m.title)} nach oben">↑</button>
-        <button type="button" class="btn icon small" data-mv="1" ${i === order.length - 1 ? "disabled" : ""} aria-label="${esc(m.title)} nach unten">↓</button>
+        <button type="button" class="btn icon small" data-mv="-1" ${i === 0 ? "disabled" : ""} aria-label="${esc(m.title)} nach oben">${icon("arrow-up")}</button>
+        <button type="button" class="btn icon small" data-mv="1" ${i === order.length - 1 ? "disabled" : ""} aria-label="${esc(m.title)} nach unten">${icon("arrow-down")}</button>
         <label class="switch" title="In der Leiste"><input type="checkbox" ${bar.includes(id) ? "checked" : ""} aria-label="${esc(m.title)} in der Leiste"><span></span></label>
       </li>`;
     }).join("");
@@ -97,8 +101,8 @@ export function mount(el, ctx) {
     const list = dashboardLayout(ctx.settings());
     $("#st-dash", el).innerHTML = list.map((w, i) => `<li data-id="${w.id}">
         <span class="name">${esc(w.title)}${w.soon ? `<small>kommt in ${esc(w.soon)}</small>` : ""}</span>
-        <button type="button" class="btn icon small" data-mv="-1" ${i === 0 ? "disabled" : ""} aria-label="${esc(w.title)} nach oben">↑</button>
-        <button type="button" class="btn icon small" data-mv="1" ${i === list.length - 1 ? "disabled" : ""} aria-label="${esc(w.title)} nach unten">↓</button>
+        <button type="button" class="btn icon small" data-mv="-1" ${i === 0 ? "disabled" : ""} aria-label="${esc(w.title)} nach oben">${icon("arrow-up")}</button>
+        <button type="button" class="btn icon small" data-mv="1" ${i === list.length - 1 ? "disabled" : ""} aria-label="${esc(w.title)} nach unten">${icon("arrow-down")}</button>
         <label class="switch"><input type="checkbox" ${w.visible ? "checked" : ""} ${w.soon ? "disabled" : ""} aria-label="${esc(w.title)} anzeigen"><span></span></label>
       </li>`).join("");
   }
@@ -174,5 +178,5 @@ export function mount(el, ctx) {
   drawNav(); drawDash(); drawNotif(); drawPush();
   if (location.hash === "#einstellungen" && sessionStorage.getItem("db-scroll") === "dashboard") { sessionStorage.removeItem("db-scroll"); $("#dashboard", el).scrollIntoView(); }
   const stop = ctx.onSettings(() => { drawNav(); drawDash(); });
-  return stop;
+  return () => { stop(); document.removeEventListener("db-theme", onTheme); };
 }

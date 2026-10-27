@@ -1,6 +1,7 @@
 // Video zu Text: Link einfügen → passende kostenlose Transkript-Seite öffnen (Link wird kopiert,
 // bei YouTube wo möglich vorausgefüllt) → Transkript mit Titel, Link und Notiz speichern; Verlauf mit Suche.
 // Datenmodell: users/{uid}/transcripts/{id} { title, url, platform, transcript, note, createdAt, updatedAt }
+import { icon } from "../core/icons.js";
 import { $, esc, openSheet, toast } from "../core/ui.js";
 import { watchCollection, put, merge, remove, newId } from "../core/data.js";
 
@@ -77,7 +78,7 @@ export function mount(el, ctx) {
     if (!found) { box.innerHTML = `<p class="err">Das ist kein YouTube-, TikTok- oder Instagram-Link.</p>`; return; }
     box.innerHTML = `<p class="small" style="margin:0"><span class="tag">${esc(found.name)}</span> erkannt. Tippe auf eine Seite – der Link wird kopiert, du musst ihn dort nur noch einfügen.</p>
       <ul class="sortlist">${SITES[found.platform].map((s, i) => `<li><span class="name">${esc(s.name)}<small>${esc(s.note)}${s.prefill && s.url ? " · Link wird vorausgefüllt, wenn die Seite es unterstützt" : ""}</small></span>
-        <a class="btn small" href="${esc((s.prefill && s.prefill(found.url, found.id)) || s.url)}" data-site="${i}" target="_blank" rel="noopener">Öffnen ↗</a></li>`).join("")}</ul>`;
+        <a class="btn small" href="${esc((s.prefill && s.prefill(found.url, found.id)) || s.url)}" data-site="${i}" target="_blank" rel="noopener">Öffnen ${icon("external", { size: 15 })}</a></li>`).join("")}</ul>`;
   }
   $("#vd-sites", el).addEventListener("click", async e => {
     const a = e.target.closest("[data-site]"); if (!a || !found) return;

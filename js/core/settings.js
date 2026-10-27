@@ -20,10 +20,21 @@ export const getSettings = () => current || {};
 export function onSettings(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 export const saveSettings = patch => merge("settings", "app", patch);
 
+const THEME_BG = { light: "#F3F4F0", dark: "#0F1113" };
+const darkQuery = matchMedia("(prefers-color-scheme: dark)");
+/** Tatsächlich sichtbares Design: "light" oder "dark" */
+export const effectiveTheme = () => document.documentElement.dataset.theme || (darkQuery.matches ? "dark" : "light");
+export function onSystemTheme(fn) { darkQuery.addEventListener("change", fn); return () => darkQuery.removeEventListener("change", fn); }
+
+/** theme: "light" | "dark" | "" (Automatisch = wie das System). Merkt es sich lokal, damit beim Start nichts aufblitzt. */
 export function applyTheme(theme) {
   const t = theme === "light" || theme === "dark" ? theme : "";
   if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
   try { if (t) localStorage.setItem("db-theme", t); else localStorage.removeItem("db-theme"); } catch (e) {}
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
+    m.content = t ? THEME_BG[t] : THEME_BG[m.media.includes("dark") ? "dark" : "light"];
+  });
+  document.dispatchEvent(new CustomEvent("db-theme"));
 }
 
 /** Reihenfolge aller Bereiche und welche davon in der Leiste stehen (neue Bereiche werden angehängt). */

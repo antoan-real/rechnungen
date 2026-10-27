@@ -7,7 +7,8 @@
 //   reflections/week-YYYY-Www { type: "week", period, date, answers: [{ q, a }] }          – Rauszoomen
 //   wheel/{YYYY-MM}      { month, scores: { areaId: 1–10 }, note }                          – Lebensrad
 //   settings/reflect     { questions: { week }, areas: [{ id, name }], reminders, moodEnabled, wheelEnabled,
-//                          weeksEnabled, birthday, cardsSeeded, today: { date, cardId } }
+//                          weeksEnabled, birthday, cardsSeeded, today: { date, cardId },
+//                          tabs: { order: [abschnittId], place: { abschnittId: "bar"|"more"|"off" } } }
 import { weekday, weekKey, monthKey, lastDayOfMonth, isoWeek, addDays } from "../core/dates.js";
 
 export const DEFAULT_QUESTIONS = {

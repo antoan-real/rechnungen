@@ -90,8 +90,8 @@ export function lineChart(box, { series, unit = "", height = 240, label = "" }) 
   return () => ro.disconnect();
 }
 
-/** Säulendiagramm mit einer Reihe. bars: [{ label, value, tip }] */
-export function columnChart(box, { bars, unit = "", height = 200, color = "var(--s1)", label = "" }) {
+/** Säulendiagramm mit einer Reihe. bars: [{ label, value, tip }]. Ohne color: graue Säulen, die letzte (aktuelle) im Akzent. */
+export function columnChart(box, { bars, unit = "", height = 200, color = "", label = "" }) {
   const draw = () => {
     const { svg, tip, w } = frame(box, height);
     svg.setAttribute("aria-label", label);
@@ -106,8 +106,8 @@ export function columnChart(box, { bars, unit = "", height = 200, color = "var(-
     bars.forEach((b, i) => {
       const cx = m.l + band * (i + 0.5), x = cx - bw / 2, y = Y(b.value), h = height - m.b - y;
       if (b.value > 0) {
-        const r = Math.min(4, h, bw / 2);
-        el("path", { d: `M${x},${height - m.b}V${y + r}Q${x},${y} ${x + r},${y}H${x + bw - r}Q${x + bw},${y} ${x + bw},${y + r}V${height - m.b}Z`, style: `fill:${color}`, class: "bar" }, svg);
+        const r = Math.min(bw / 2, h / 2);
+        el("rect", { x, y, width: bw, height: h, rx: r, ry: r, class: "bar" + (i === bars.length - 1 ? " on" : ""), ...(color ? { style: `fill:${color}` } : {}) }, svg);
       }
       if (i % every === 0 || i === bars.length - 1) el("text", { x: cx, y: height - 8, "text-anchor": "middle", class: "axis-t" }, svg).textContent = b.label;
       if (i === bars.length - 1 && b.value > 0) el("text", { x: cx, y: y - 5, "text-anchor": "middle", class: "val" }, svg).textContent = compact(b.value);

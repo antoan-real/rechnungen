@@ -31,6 +31,21 @@ export function currentStreak(h, logs, now = today()) {
   return n;
 }
 
+/** Tage in Folge, an denen alle geplanten Gewohnheiten erledigt waren (heute zählt erst, wenn alles erledigt ist). */
+export function dayStreak(habits, logs, now = today()) {
+  if (!habits.length) return 0;
+  const first = habits.map(h => h.startDate || "").sort()[0];
+  let d = now, n = 0;
+  for (let i = 0; i < 2000; i++, d = addDays(d, -1)) {
+    if (first && d < first) break;
+    const planned = habits.filter(h => isScheduled(h, d));
+    if (!planned.length) continue;
+    const all = planned.every(h => isDone(h, valueOf(logs, d, h.id)));
+    if (all) n++; else if (d !== now) break;
+  }
+  return n;
+}
+
 export function bestStreak(h, logs, now = today()) {
   if (!h.startDate) return currentStreak(h, logs, now);
   let best = 0, run = 0;

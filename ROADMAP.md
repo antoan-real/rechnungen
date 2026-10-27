@@ -6,7 +6,7 @@ Jeder Bereich ist ein eigenes Modul unter `js/modules/`, Daten liegen pro Nutzer
 ## Phase 1 – Grundgerüst ✅
 - Login, Registrierung, Passwort zurücksetzen (Firebase Authentication)
 - Navigation: Tabs oben, „Mehr“-Menü rechts, Reihenfolge und Leiste in den Einstellungen festlegbar
-- Einstellungen: Navigation, Dashboard-Kacheln, Design (Hell/Dunkel/System), Name, Benachrichtigungen, Konto
+- Einstellungen: Navigation, Dashboard-Kacheln, Design (Hell/Dunkel/Automatisch), Name, Benachrichtigungen, Konto
 - Dashboard mit ein-/ausblendbaren und sortierbaren Kacheln
 - PWA: installierbar, Offline-Start, Firestore-Offline-Cache
 - Rechnungstool als Bereich (gleiche Daten wie vorher, zusätzlich Status „bezahlt/offen“)
@@ -36,6 +36,14 @@ Jeder Bereich ist ein eigenes Modul unter `js/modules/`, Daten liegen pro Nutzer
   Gruppierung ähnlicher Meldungen zu Themen, nur Überschrift/Anreißer/Link
 - Video zu Text: Plattform-Erkennung, passende kostenlose Transkript-Seiten (Link wird kopiert, bei YouTube
   vorausgefüllt), Speichern mit Titel/Link/Notiz, Verlauf mit Volltextsuche
+
+## Design-System ✅
+- Zentrale Tokens in `css/app.css` (Hell/Dunkel, Akzent #C8F25A, Signalfarben), Schrift Space Grotesk,
+  Karten mit 22px Radius und Rand statt Schatten, runde Knöpfe (mind. 44×44), Linien-Icons statt Emojis
+- Kopfbereich mit Datum, „Hey Name“, Hell/Dunkel-Umschalter und Avatar; Text-Tabs mit Unterstrich + „Mehr“
+- Startseite: Hervorhebungs-Kachel Gewohnheiten (Zahl, Serie, Segmentbalken), Höchstgewicht 8 Wochen,
+  Nächste Prüfung und Rechnungen nebeneinander, Gedanke des Tages; am Desktop Raster bis 1200px
+- Lebensreflektor ruhiger (größere Kartenschrift, gedämpfter Akzent); Abschnitte frei auf Leiste / „Mehr“ / aus
 
 ## Phase 5
 - Englisch lernen

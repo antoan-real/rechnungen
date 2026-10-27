@@ -1,7 +1,8 @@
 // Einstieg: Anmeldung, Kopfleiste mit Tabs und „Mehr“-Menü, Router über #bereich.
 import { auth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from "./firebase.js";
 import { setUser, onDataError } from "./core/data.js";
-import { startSettings, getSettings, onSettings, saveSettings, navLayout } from "./core/settings.js";
+import { startSettings, getSettings, onSettings, saveSettings, navLayout, applyTheme, effectiveTheme, onSystemTheme } from "./core/settings.js";
+import { icon } from "./core/icons.js";
 import { $, esc, toast, openSheet, confirmBox } from "./core/ui.js";
 import { moduleById } from "./modules/registry.js";
 import { startReminders } from "./core/reminders.js";
@@ -70,6 +71,31 @@ function renderLogin() {
   box.hidden = false;
   $("#l-email").focus();
 }
+
+/* ---------- Kopfbereich: Datum, „Hey Name“, Hell/Dunkel, Avatar ---------- */
+const displayName = () => getSettings().name || (user?.email || "").split("@")[0];
+function renderHead() {
+  const d = new Date();
+  const wd = d.toLocaleDateString("de-DE", { weekday: "short" }).replace(".", "");
+  const mon = d.toLocaleDateString("de-DE", { month: "short" }).replace(".", "");
+  $("#hd-date").textContent = `${wd} · ${d.getDate()}. ${mon}`;
+  const name = displayName();
+  $("#hd-name").textContent = name ? `Hey ${name}` : "Hey";
+  $("#avatar").textContent = (name || "?").trim().charAt(0).toUpperCase();
+  $("#avatar").setAttribute("aria-label", "Einstellungen" + (name ? ` (${name})` : ""));
+  const dark = effectiveTheme() === "dark";
+  $("#theme-btn").innerHTML = icon(dark ? "sun" : "moon", { size: 20 });
+  $("#theme-btn").setAttribute("aria-label", dark ? "Helles Design" : "Dunkles Design");
+  $("#theme-btn").title = dark ? "Helles Design" : "Dunkles Design";
+}
+$("#theme-btn").onclick = () => {
+  const next = effectiveTheme() === "dark" ? "light" : "dark";
+  applyTheme(next);
+  if (user) saveSettings({ theme: next }).catch(() => {});
+};
+document.addEventListener("db-theme", () => { if (user) renderHead(); });
+onSystemTheme(() => { if (user) renderHead(); });
+setInterval(() => { if (user) renderHead(); }, 60000);
 
 /* ---------- Navigation ---------- */
 function renderNav(activeId) {
@@ -151,7 +177,8 @@ onAuthStateChanged(auth, async u => {
   $("#shell").hidden = false;
   view.innerHTML = `<div class="empty">Lade …</div>`;
   stopSettings = await startSettings();
-  stopNav = onSettings(() => renderNav((decodeURIComponent(location.hash.slice(1)) || "dashboard")));
+  stopNav = onSettings(() => { renderHead(); renderNav((decodeURIComponent(location.hash.slice(1)) || "dashboard")); });
+  renderHead();
   stopReminders = startReminders(ctx);
   refreshPush();
   route();

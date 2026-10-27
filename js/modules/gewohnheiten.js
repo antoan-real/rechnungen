@@ -5,15 +5,18 @@ import { watchCollection, put, merge, remove, newId } from "../core/data.js";
 import { today, addDays, parseDay, weekday, WD_SHORT, WD_ORDER } from "../core/dates.js";
 import {
   ALL_DAYS, habitDays, target, valueOf, isDone, isScheduled, sortHabits,
-  currentStreak, bestStreak, rate, fmtNum
+  currentStreak, bestStreak, dayStreak, rate, fmtNum
 } from "./habits-core.js";
+import { icon, HABIT_ICONS } from "../core/icons.js";
 
 const SUGGESTIONS = [
-  { name: "Wasser trinken", emoji: "💧", type: "qty", target: 2, unit: "Liter", step: 0.25 },
-  { name: "Lesen", emoji: "📖", type: "qty", target: 20, unit: "Seiten", step: 5 },
-  { name: "Dehnen", emoji: "🧘", type: "check" },
-  { name: "Spazieren gehen", emoji: "🚶", type: "check" }
+  { name: "Wasser trinken", icon: "droplet", type: "qty", target: 2, unit: "Liter", step: 0.25 },
+  { name: "Lesen", icon: "book", type: "qty", target: 20, unit: "Seiten", step: 5 },
+  { name: "Dehnen", icon: "activity", type: "check" },
+  { name: "Spazieren gehen", icon: "leaf", type: "check" }
 ];
+// Symbol einer Gewohnheit als Linien-Icon (früher gespeicherte Emojis werden nicht mehr angezeigt)
+const hIcon = (h, size = 18) => icon(h.icon || "circle", { size });
 
 /* ---------- gemeinsame Daten-Abos ---------- */
 function subscribe(onChange) {
@@ -60,17 +63,17 @@ function dayLabel(day) {
 function rowHtml(h, day, logs, opts = {}) {
   const v = valueOf(logs, day, h.id), done = isDone(h, v), streak = currentStreak(h, logs);
   const meta = [];
-  if (streak > 0) meta.push(`<span class="streak">${streak} ${streak === 1 ? "Tag" : "Tage"} in Folge</span>`);
+  if (streak > 0) meta.push(`<span class="streak">${icon("flame", { size: 14 })} ${streak} ${streak === 1 ? "Tag" : "Tage"} in Folge</span>`);
   if (h.type === "qty") meta.push(`<span class="num">${fmtNum(v)} / ${fmtNum(target(h))} ${esc(h.unit || "")}</span>`);
-  if (!opts.compact && h.reminder?.time) meta.push(`<button type="button" class="bell ${h.reminder.enabled ? "on" : ""}" data-act="bell" aria-pressed="${!!h.reminder.enabled}" title="Erinnerung ein/aus">${h.reminder.enabled ? "🔔" : "🔕"} ${esc(h.reminder.time)}</button>`);
+  if (!opts.compact && h.reminder?.time) meta.push(`<button type="button" class="bell ${h.reminder.enabled ? "on" : ""}" data-act="bell" aria-pressed="${!!h.reminder.enabled}" title="Erinnerung ein/aus">${icon(h.reminder.enabled ? "bell" : "bell-off", { size: 15 })} ${esc(h.reminder.time)}</button>`);
   const action = h.type === "qty"
-    ? `<div class="qty"><button type="button" class="btn" data-act="minus" aria-label="${esc(h.name)} weniger">−</button>
-        <button type="button" class="btn ${done ? "done" : ""}" data-act="plus" aria-label="${esc(h.name)} plus ${fmtNum(h.step || 1)}">+</button></div>`
+    ? `<div class="qty"><button type="button" class="btn" data-act="minus" aria-label="${esc(h.name)} weniger">${icon("minus")}</button>
+        <button type="button" class="btn ${done ? "done" : ""}" data-act="plus" aria-label="${esc(h.name)} plus ${fmtNum(h.step || 1)}">${icon("plus")}</button></div>`
     : `<button type="button" class="check" data-act="toggle" aria-pressed="${done}" aria-label="${esc(h.name)} ${done ? "erledigt" : "abhaken"}"></button>`;
   const bar = h.type === "qty" ? `<div class="bar" aria-hidden="true"><i style="width:${Math.min(100, (v / target(h)) * 100)}%"></i></div>` : "";
   return `<div class="habit" data-id="${esc(h.id)}">
     <div class="hmain">
-      <button type="button" class="hname" data-act="${opts.compact ? "goto" : "detail"}">${h.emoji ? `<span aria-hidden="true">${esc(h.emoji)}</span>` : ""}<span>${esc(h.name)}</span></button>
+      <button type="button" class="hname" data-act="${opts.compact ? "goto" : "detail"}"><span class="hicon" aria-hidden="true">${hIcon(h)}</span><span>${esc(h.name)}</span></button>
       ${bar}${meta.length ? `<div class="hmeta">${meta.join("")}</div>` : ""}
     </div>${action}</div>`;
 }
@@ -91,7 +94,7 @@ export function mount(el, ctx) {
   let day = today();
   el.innerHTML = `
     <div class="page-head"><div><h1>Gewohnheiten</h1><p id="hb-date"></p></div>
-      <button type="button" class="btn primary" id="hb-new">+ Neue Gewohnheit</button></div>
+      <button type="button" class="btn primary" id="hb-new">${icon("plus")} Neue Gewohnheit</button></div>
     <div class="stack">
       <section class="card stack">
         <div class="row" style="flex-wrap:nowrap;gap:14px"><div class="ring" id="hb-ring"><span></span></div><div class="days" id="hb-days" style="flex:1"></div></div>
@@ -127,7 +130,7 @@ export function mount(el, ctx) {
 
     if (!st.habits.length) {
       $("#hb-list", el).innerHTML = `<div class="stack"><p style="margin:0">Noch keine Gewohnheiten. Leg eine eigene an oder starte mit einem Vorschlag:</p>
-        <div class="chips">${SUGGESTIONS.map((s, i) => `<button type="button" class="chip" data-sug="${i}">${s.emoji} ${esc(s.name)}${s.type === "qty" ? ` (${fmtNum(s.target)} ${esc(s.unit)})` : ""}</button>`).join("")}</div></div>`;
+        <div class="chips">${SUGGESTIONS.map((s, i) => `<button type="button" class="chip" data-sug="${i}">${icon(s.icon, { size: 16 })} ${esc(s.name)}${s.type === "qty" ? ` (${fmtNum(s.target)} ${esc(s.unit)})` : ""}</button>`).join("")}</div></div>`;
     } else {
       $("#hb-list", el).innerHTML = planned.map(h => rowHtml(h, day, st.logs)).join("") || `<p class="muted" style="margin:0">Für diesen Tag ist nichts geplant.</p>`;
     }
@@ -137,10 +140,10 @@ export function mount(el, ctx) {
     $("#hb-all-wrap", el).hidden = !st.habits.length;
     $("#hb-all", el).innerHTML = st.habits.map((h, i) => {
       const r = rate(h, st.logs, 30);
-      return `<li data-id="${esc(h.id)}"><span class="emoji" aria-hidden="true">${esc(h.emoji || "•")}</span>
-        <span class="name">${esc(h.name)}<small>${daysText(h)} · Serie ${currentStreak(h, st.logs)} · Rekord ${bestStreak(h, st.logs)}${r === null ? "" : ` · ${r} % in 30 Tagen`}${h.reminder?.enabled ? ` · 🔔 ${esc(h.reminder.time)}` : ""}</small></span>
-        <button type="button" class="btn icon small" data-mv="-1" ${i === 0 ? "disabled" : ""} aria-label="${esc(h.name)} nach oben">↑</button>
-        <button type="button" class="btn icon small" data-mv="1" ${i === st.habits.length - 1 ? "disabled" : ""} aria-label="${esc(h.name)} nach unten">↓</button>
+      return `<li data-id="${esc(h.id)}"><span class="hicon" aria-hidden="true">${hIcon(h)}</span>
+        <span class="name">${esc(h.name)}<small>${daysText(h)} · Serie ${currentStreak(h, st.logs)} · Rekord ${bestStreak(h, st.logs)}${r === null ? "" : ` · ${r} % in 30 Tagen`}${h.reminder?.enabled ? ` · Erinnerung ${esc(h.reminder.time)}` : ""}</small></span>
+        <button type="button" class="btn icon small" data-mv="-1" ${i === 0 ? "disabled" : ""} aria-label="${esc(h.name)} nach oben">${icon("arrow-up")}</button>
+        <button type="button" class="btn icon small" data-mv="1" ${i === st.habits.length - 1 ? "disabled" : ""} aria-label="${esc(h.name)} nach unten">${icon("arrow-down")}</button>
         <button type="button" class="btn small" data-edit>Bearbeiten</button></li>`;
     }).join("");
   }
@@ -182,7 +185,7 @@ const daysText = h => {
 function createHabit(data, habits) {
   const id = newId("hb");
   return put("habits", id, {
-    name: data.name, emoji: data.emoji || "", type: data.type || "check",
+    name: data.name, icon: data.icon || "circle", type: data.type || "check",
     target: data.type === "qty" ? data.target : null, unit: data.unit || "", step: data.step || 1,
     days: ALL_DAYS, reminder: { enabled: false, time: "", mode: "daily", days: [] },
     order: habits.length, startDate: today(), createdAt: new Date().toISOString()
@@ -206,7 +209,7 @@ function openDetail(h, st, ctx) {
       cells.push(`<i class="${cls}" title="${d}: ${h.type === "qty" ? fmtNum(v) + " " + esc(h.unit || "") : isDone(h, v) ? "erledigt" : "offen"}"></i>`);
     }
     const r = rate(h, st.logs, 30);
-    s.innerHTML = `<div class="sheet-head"><h3>${h.emoji ? esc(h.emoji) + " " : ""}${esc(h.name)}</h3><button type="button" class="btn small ghost" data-x aria-label="Schließen">✕</button></div>
+    s.innerHTML = `<div class="sheet-head"><h3 class="row" style="gap:8px">${hIcon(h, 20)}${esc(h.name)}</h3><button type="button" class="btn icon ghost" data-x aria-label="Schließen">${icon("x")}</button></div>
       <p class="muted" style="margin:0">${daysText(h)}${h.type === "qty" ? ` · Ziel ${fmtNum(target(h))} ${esc(h.unit || "")}` : ""}${h.reminder?.enabled ? ` · Erinnerung ${esc(h.reminder.time)}` : ""}</p>
       <div class="stats"><div><b>${currentStreak(h, st.logs)}</b><span>aktuelle Serie</span></div><div><b>${bestStreak(h, st.logs)}</b><span>beste Serie</span></div><div><b>${r === null ? "–" : r + " %"}</b><span>letzte 30 Tage</span></div></div>
       <div><h2 style="margin-bottom:8px">Letzte ${weeks} Wochen</h2><div class="heat" aria-label="Verlauf">${cells.join("")}</div></div>
@@ -219,7 +222,7 @@ function openDetail(h, st, ctx) {
 /* ---------- Anlegen / Bearbeiten ---------- */
 function openEditor(h, st, ctx) {
   const isNew = !h;
-  const d = h ? structuredClone(h) : { name: "", emoji: "", type: "check", target: 1, unit: "", step: 1, days: ALL_DAYS.slice(), reminder: { enabled: false, time: "08:00", mode: "daily", days: [1, 2, 3, 4, 5] } };
+  const d = h ? structuredClone(h) : { name: "", icon: "circle", type: "check", target: 1, unit: "", step: 1, days: ALL_DAYS.slice(), reminder: { enabled: false, time: "08:00", mode: "daily", days: [1, 2, 3, 4, 5] } };
   d.days = habitDays(d).slice();
   d.reminder = { enabled: false, time: "08:00", mode: "daily", days: [], ...(d.reminder || {}) };
   if (!d.reminder.time) d.reminder.time = "08:00";
@@ -228,10 +231,8 @@ function openEditor(h, st, ctx) {
   openSheet((s, close) => {
     const dayChips = (sel, attr) => WD_ORDER.map(x => `<button type="button" class="chip" ${attr}="${x}" aria-pressed="${sel.includes(x)}">${WD_SHORT[x]}</button>`).join("");
     s.innerHTML = `<div class="sheet-head"><h3>${isNew ? "Neue Gewohnheit" : "Gewohnheit bearbeiten"}</h3></div>
-      <div class="row" style="flex-wrap:nowrap">
-        <label class="field" style="width:76px"><span>Symbol</span><input class="input" type="text" id="e-emoji" maxlength="4" placeholder="💧" value="${esc(d.emoji)}"></label>
-        <label class="field" style="flex:1"><span>Name</span><input class="input" type="text" id="e-name" placeholder="z. B. Wasser trinken" value="${esc(d.name)}" autofocus></label>
-      </div>
+      <label class="field"><span>Name</span><input class="input" type="text" id="e-name" placeholder="z. B. Wasser trinken" value="${esc(d.name)}" autofocus></label>
+      <div class="field"><span>Symbol</span><div class="chips icon-pick" id="e-icon">${HABIT_ICONS.map(n => `<button type="button" class="chip" data-ic="${n}" aria-pressed="${(d.icon || "circle") === n}" aria-label="Symbol ${n}">${icon(n)}</button>`).join("")}</div></div>
       <div class="field"><span>Art</span><div class="seg" id="e-type"><button type="button" data-v="check">Abhaken</button><button type="button" data-v="qty">Menge mit Ziel</button></div></div>
       <div class="row" id="e-qty" style="flex-wrap:nowrap">
         <label class="field" style="flex:1"><span>Ziel pro Tag</span><input class="input num" type="text" inputmode="decimal" id="e-target" value="${fmtNum(d.target || 1)}"></label>
@@ -264,6 +265,7 @@ function openEditor(h, st, ctx) {
         : `Benachrichtigungen sind auf diesem Gerät noch nicht erlaubt. <button type="button" class="linkbtn" id="e-ask">Jetzt erlauben</button>`;
       const ask = $("#e-ask", s); if (ask) ask.onclick = async () => { await Notification.requestPermission(); sync(); };
     };
+    $("#e-icon", s).onclick = e => { const b = e.target.closest("[data-ic]"); if (!b) return; d.icon = b.dataset.ic; $$("#e-icon [data-ic]", s).forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
     $("#e-type", s).onclick = e => { const b = e.target.closest("button"); if (b) { d.type = b.dataset.v; sync(); } };
     $("#e-mode", s).onclick = e => { const b = e.target.closest("button"); if (b) { d.reminder.mode = b.dataset.v; sync(); } };
     $("#e-rem", s).onchange = sync;
@@ -283,7 +285,7 @@ function openEditor(h, st, ctx) {
       if (remOn && !time) { err("Bitte eine Uhrzeit für die Erinnerung wählen."); return; }
       if (remOn && d.reminder.mode === "days" && !d.reminder.days.length) { err("Bitte mindestens einen Erinnerungstag wählen."); return; }
       const data = {
-        name, emoji: $("#e-emoji", s).value.trim(), type: d.type,
+        name, icon: d.icon || "circle", type: d.type,
         target: d.type === "qty" ? tgt : null, unit: d.type === "qty" ? $("#e-unit", s).value.trim() : "",
         step: d.type === "qty" && step > 0 ? step : 1,
         days: d.days.slice().sort(),
@@ -301,20 +303,37 @@ function openEditor(h, st, ctx) {
   }, { label: isNew ? "Neue Gewohnheit" : "Gewohnheit bearbeiten" });
 }
 
-/* ---------- Kachel für die Startseite ---------- */
+/* ---------- Kachel für die Startseite (Hervorhebung) ---------- */
 export const widgets = {
   "habits-today"(el, ctx) {
+    el.classList.add("hl");
+    el.innerHTML = `<div class="tile-head"><h2>Gewohnheiten heute</h2></div><div class="empty" style="color:inherit">Lade …</div>`;
     const sub = subscribe(st => {
       if (!st.ready.h || !st.ready.l) return;
       const d = today();
       const planned = st.habits.filter(h => isScheduled(h, d));
       const doneN = planned.filter(h => isDone(h, valueOf(st.logs, d, h.id))).length;
-      el.innerHTML = `<div class="tile-head"><h2>Gewohnheiten heute · ${doneN}/${planned.length}</h2><a href="#gewohnheiten">Alle</a></div>
-        <div>${planned.map(h => rowHtml(h, d, st.logs, { compact: true })).join("") || `<p class="muted" style="margin:0">${st.habits.length ? "Heute ist nichts geplant." : `Noch keine Gewohnheiten. <a href="#gewohnheiten">Jetzt anlegen</a>`}</p>`}</div>`;
+      const streak = dayStreak(st.habits, st.logs, d);
+      if (!planned.length) {
+        el.innerHTML = `<div class="tile-head"><h2>Gewohnheiten heute</h2><a href="#gewohnheiten">Alle ${icon("chevron-right", { size: 14 })}</a></div>
+          <p style="margin:0;font-weight:500">${st.habits.length ? "Heute ist nichts geplant." : `Noch keine Gewohnheiten. <a href="#gewohnheiten">Jetzt anlegen</a>`}</p>`;
+        return;
+      }
+      el.innerHTML = `<div class="tile-head"><h2>Gewohnheiten heute</h2><a href="#gewohnheiten">Alle ${icon("chevron-right", { size: 14 })}</a></div>
+        <div class="hl-row"><div class="big-num" aria-label="${doneN} von ${planned.length} erledigt">${doneN}/${planned.length}<small>erledigt</small></div>
+          ${streak ? `<span class="streak-pill">${icon("flame", { size: 16 })}${streak} ${streak === 1 ? "Tag" : "Tage"} Serie</span>` : ""}</div>
+        <div class="segbar" aria-hidden="true">${planned.map(h => `<i class="${isDone(h, valueOf(st.logs, d, h.id)) ? "on" : ""}"></i>`).join("")}</div>
+        <div class="hl-habits">${planned.map(h => {
+          const v = valueOf(st.logs, d, h.id), done = isDone(h, v);
+          return `<button type="button" data-id="${esc(h.id)}" aria-pressed="${done}" aria-label="${esc(h.name)}${h.type === "qty" ? ` plus ${fmtNum(h.step || 1)} ${esc(h.unit || "")}` : done ? " erledigt" : " abhaken"}">
+            <span class="dot">${icon(done ? "check" : h.type === "qty" ? "plus" : (h.icon || "circle"), { size: 14 })}</span>${esc(h.name)}${h.type === "qty" ? ` <span class="num" style="opacity:.75">${fmtNum(v)}/${fmtNum(target(h))}</span>` : ""}</button>`;
+        }).join("")}</div>`;
     });
-    el.innerHTML = `<div class="tile-head"><h2>Gewohnheiten heute</h2></div><div class="empty">Lade …</div>`;
-    const onClick = e => handleRowClick(e, sub.state, today(), ctx);
+    const onClick = e => {
+      const b = e.target.closest(".hl-habits [data-id]"); if (!b) return;
+      const h = sub.state.habits.find(x => x.id === b.dataset.id); if (h) toggle(h, today(), sub.state.logs);
+    };
     el.addEventListener("click", onClick);
-    return () => { sub.stop(); el.removeEventListener("click", onClick); };
+    return () => { sub.stop(); el.removeEventListener("click", onClick); el.classList.remove("hl"); };
   }
 };

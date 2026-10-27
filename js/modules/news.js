@@ -1,5 +1,6 @@
 // News: Meldungen großer deutscher Medien (RSS), nach Thema gruppiert. Nur Überschrift, Anreißer und Link.
 // Quelle der Daten: news.json, alle 30 Minuten von GitHub Actions erzeugt (siehe news-core.js).
+import { icon } from "../core/icons.js";
 import { $, $$, esc, openSheet, toast } from "../core/ui.js";
 import { SOURCES, DEFAULT_SOURCES, NEWS_URL, sourceName, groupArticles } from "./news-core.js";
 
@@ -15,7 +16,7 @@ const cached = () => { try { return JSON.parse(localStorage.getItem(CACHE) || "n
 export function mount(el, ctx) {
   let data = cached(), view = sessionStorage.getItem("nw-view") || "topics", q = "", loading = false, error = "";
   el.innerHTML = `<div class="page-head"><div><h1>News</h1><p id="nw-stand"></p></div>
-      <div class="row"><button type="button" class="btn" id="nw-src">Quellen</button><button type="button" class="btn" id="nw-reload" aria-label="Aktualisieren">↻ Aktualisieren</button></div></div>
+      <div class="row"><button type="button" class="btn" id="nw-src">Quellen</button><button type="button" class="btn" id="nw-reload" aria-label="Aktualisieren">${icon("refresh", { size: 16 })} Aktualisieren</button></div></div>
     <div class="card stack" style="margin-bottom:14px">
       <div class="row"><div class="seg" id="nw-view"><button type="button" data-v="topics">Themen</button><button type="button" data-v="all">Alle Meldungen</button></div>
         <input class="input" type="search" id="nw-q" placeholder="Suchen …" aria-label="News durchsuchen" style="flex:1 1 180px;width:auto"></div>

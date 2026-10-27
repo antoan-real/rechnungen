@@ -1,4 +1,5 @@
 // Lebensreflektor: Lebensrad (monatlich), Leben in Wochen, Rückblick (Alltagsmomente, Jahresrückblick, Suche).
+import { icon } from "../../core/icons.js";
 import { $, $$, esc, toast } from "../../core/ui.js";
 import { put, merge } from "../../core/data.js";
 import { today, parseDay, daysBetween } from "../../core/dates.js";
@@ -40,9 +41,9 @@ export function renderWheel(box, st, ctx, ui, nav) {
   box.innerHTML = `<div class="stack"><div class="rf-cols">
     <section class="card stack" style="align-items:center">
       <div class="row" style="justify-content:space-between;width:100%"><h2>${esc(monthName(ui.month))}</h2>
-        <div class="row" style="gap:4px"><button type="button" class="btn icon small" id="lr-prev" aria-label="Vorheriger Monat">‹</button><button type="button" class="btn icon small" id="lr-next" ${ui.month >= cur ? "disabled" : ""} aria-label="Nächster Monat">›</button></div></div>
+        <div class="row" style="gap:4px"><button type="button" class="btn icon small" id="lr-prev" aria-label="Vorheriger Monat">${icon("chevron-left")}</button><button type="button" class="btn icon small" id="lr-next" ${ui.month >= cur ? "disabled" : ""} aria-label="Nächster Monat">${icon("chevron-right")}</button></div></div>
       <div id="lr-radar" style="width:100%;max-width:420px">${radarSvg(areas, ui.draft, prev)}</div>
-      <div class="legend-row"><span><i style="background:var(--rf-warm)"></i>${esc(monthName(ui.month))}${entry ? "" : " (Entwurf)"}</span>${prev ? `<span><i style="background:var(--muted)"></i>${esc(monthName(prevKey))}</span>` : ""}</div>
+      <div class="legend-row"><span><i style="background:var(--rf-accent)"></i>${esc(monthName(ui.month))}${entry ? "" : " (Entwurf)"}</span>${prev ? `<span><i style="background:var(--muted)"></i>${esc(monthName(prevKey))}</span>` : ""}</div>
     </section>
     <section class="card stack"><h2>Wie zufrieden bist du gerade?</h2>
       <div class="sliders" id="lr-sliders">${areas.map(a => `<label><span>${esc(a.name)}</span><b class="num" data-v="${esc(a.id)}">${ui.draft[a.id]}</b>
@@ -85,7 +86,7 @@ export function renderWeeks(box, st, ctx) {
   box.innerHTML = `<section class="card stack">
     <h2>Leben in Wochen</h2>
     <p class="serif" style="font-size:18px">Du bist ${years} Jahre und ${weeks} Woche${weeks === 1 ? "" : "n"} alt – Woche ${fmt(lived + 1, 0)} von ${fmt(TOTAL, 0)}. Jedes Kästchen ist eine Woche. Mach die nächste zu einer, an die du dich gern erinnerst.</p>
-    <div class="legend-row"><span><i style="background:var(--muted)"></i>gelebt (${fmt(Math.min(100, lived / TOTAL * 100))} %)</span><span><i style="background:var(--rf-warm)"></i>diese Woche</span><span><i style="background:transparent;border:1px solid var(--line)"></i>noch vor dir</span></div>
+    <div class="legend-row"><span><i style="background:var(--muted)"></i>gelebt (${fmt(Math.min(100, lived / TOTAL * 100))} %)</span><span><i style="background:var(--rf-accent)"></i>diese Woche</span><span><i style="background:transparent;border:1px solid var(--line)"></i>noch vor dir</span></div>
     <div class="weeks-wrap"><canvas id="lw-canvas" role="img" aria-label="${fmt(lived, 0)} von ${fmt(TOTAL, 0)} Lebenswochen gelebt"></canvas></div>
     <p class="note">Geburtsdatum ändern: Einstellungen des Lebensreflektors.</p></section>`;
   const canvas = $("#lw-canvas", box), wrap = canvas.parentElement;
@@ -102,7 +103,7 @@ export function renderWeeks(box, st, ctx) {
       for (let x = 0; x < 52; x++) {
         const i = y * 52 + x, px = labelW + x * cell, py = y * cell;
         if (i < lived) { g.fillStyle = col("--muted"); g.globalAlpha = 0.55; g.fillRect(px, py, size, size); g.globalAlpha = 1; }
-        else if (i === lived) { g.fillStyle = col("--rf-warm"); g.fillRect(px - 0.5, py - 0.5, size + 1, size + 1); }
+        else if (i === lived) { g.fillStyle = col("--rf-accent"); g.fillRect(px - 0.5, py - 0.5, size + 1, size + 1); }
         else { g.strokeStyle = col("--line"); g.lineWidth = 1; g.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1); }
       }
     }
@@ -198,7 +199,7 @@ export function renderReview(box, st, ctx, ui, nav) {
     const { moods, wheelMonths, y } = ui._chart;
     if (moods.length && $("#rv-mood", box)) {
       const by = {}; for (const j of moods) { const m = j.date.slice(0, 7); (by[m] ||= []).push(j.mood); }
-      cleanups.push(columnChart($("#rv-mood", box), { bars: Array.from({ length: 12 }, (_, i) => { const m = `${y}-${String(i + 1).padStart(2, "0")}`, v = by[m]; return { label: parseDay(m + "-01").toLocaleDateString("de-DE", { month: "short" }), value: v ? Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10 : 0, tip: monthName(m) + (v ? ` · ${v.length} Tage` : " · keine Angabe") }; }), color: "var(--rf-warm)", label: "Stimmung pro Monat", height: 180 }));
+      cleanups.push(columnChart($("#rv-mood", box), { bars: Array.from({ length: 12 }, (_, i) => { const m = `${y}-${String(i + 1).padStart(2, "0")}`, v = by[m]; return { label: parseDay(m + "-01").toLocaleDateString("de-DE", { month: "short" }), value: v ? Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10 : 0, tip: monthName(m) + (v ? ` · ${v.length} Tage` : " · keine Angabe") }; }), label: "Stimmung pro Monat", height: 180 }));
     }
     if (wheelMonths.length >= 2 && $("#rv-wheel", box)) {
       const areas = areasOf(st.cfg);

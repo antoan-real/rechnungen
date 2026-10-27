@@ -1,4 +1,5 @@
 // Lebensreflektor: Perspektiv-Karten, Meckern umdrehen, Menschen und ihre Geschichten, Rauszoomen.
+import { icon } from "../../core/icons.js";
 import { $, $$, esc, openSheet, toast } from "../../core/ui.js";
 import { put, merge, remove, newId } from "../../core/data.js";
 import { today, addDays, isoWeek, shortDate } from "../../core/dates.js";
@@ -15,8 +16,8 @@ export function renderCards(box, st, ctx, ui) {
   box.innerHTML = `<div class="stack">
     <div class="row"><input class="input" type="search" id="ck-q" placeholder="In Karten und Notizen suchen …" value="${esc(ui.q || "")}" style="flex:1 1 220px;width:auto" aria-label="Karten durchsuchen">
       <button type="button" class="btn primary" id="ck-new">+ Karte</button></div>
-    <div class="chips" id="ck-filter">${[["alle", `Alle (${st.cards.length})`], ["fav", `♥ Favoriten (${st.cards.filter(c => c.favorite).length})`], ...cats.map(c => [c, c])].map(([v, l]) => `<button type="button" class="chip" data-f="${esc(v)}" aria-pressed="${ui.filter === v}">${esc(l)}</button>`).join("")}</div>
-    <div class="cardlist">${list.map(c => cardHtml(c, { compact: true, button: true, actions: `${c.favorite ? `<span style="color:var(--rf-warm)">♥ Favorit</span>` : ""}${c.notes?.length ? `<span class="small muted">${c.notes.length} Notiz${c.notes.length === 1 ? "" : "en"}</span>` : ""}` })).join("")
+    <div class="chips" id="ck-filter">${[["alle", `Alle (${st.cards.length})`], ["fav", `Favoriten (${st.cards.filter(c => c.favorite).length})`], ...cats.map(c => [c, c])].map(([v, l]) => `<button type="button" class="chip" data-f="${esc(v)}" aria-pressed="${ui.filter === v}">${esc(l)}</button>`).join("")}</div>
+    <div class="cardlist">${list.map(c => cardHtml(c, { compact: true, button: true, actions: `${c.favorite ? `<span class="fav-mark">${icon("heart", { size: 14, fill: true })} Favorit</span>` : ""}${c.notes?.length ? `<span class="small muted">${c.notes.length} Notiz${c.notes.length === 1 ? "" : "en"}</span>` : ""}` })).join("")
       || `<div class="card empty">${st.cards.length ? "Keine Karte passt zur Auswahl." : "Noch keine Karten."}</div>`}</div></div>`;
   $("#ck-q", box).oninput = e => { ui.q = e.target.value; const p = e.target.selectionStart; renderCards(box, st, ctx, ui); const n = $("#ck-q", box); n.focus(); n.setSelectionRange(p, p); };
   $("#ck-filter", box).onclick = e => { const b = e.target.closest("[data-f]"); if (b) { ui.filter = b.dataset.f; renderCards(box, st, ctx, ui); } };
@@ -33,7 +34,7 @@ export function openCard(st, id, ctx) {
       const c = st.cards.find(x => x.id === id); if (!c) { close(); return; }
       const notes = (c.notes || []).slice().sort((a, b) => b.date.localeCompare(a.date));
       const src = c.source ? (/^https?:\/\//.test(c.source) ? `<a href="${esc(c.source)}" target="_blank" rel="noopener" style="overflow-wrap:anywhere">${esc(c.source)}</a>` : esc(c.source)) : "";
-      s.innerHTML = `${cardHtml(c, { actions: `<button type="button" class="fav" data-fav aria-pressed="${!!c.favorite}" aria-label="${c.favorite ? "Favorit entfernen" : "Als Favorit markieren"}">${c.favorite ? "♥" : "♡"}</button>${src ? `<span class="small muted">Quelle: ${src}</span>` : ""}` })}
+      s.innerHTML = `${cardHtml(c, { actions: `<button type="button" class="fav" data-fav aria-pressed="${!!c.favorite}" aria-label="${c.favorite ? "Favorit entfernen" : "Als Favorit markieren"}">${icon("heart", { size: 22, fill: !!c.favorite })}</button>${src ? `<span class="small muted">Quelle: ${src}</span>` : ""}` })}
         <div class="stack"><h2>Wo ist mir das begegnet?</h2>
           <form class="stack" id="cn-form" style="gap:8px"><textarea class="input" id="cn-text" rows="2" placeholder="z. B. Heute stand ich im Stau, als ein Rettungswagen vorbeifuhr …" aria-label="Neue Notiz"></textarea>
             <div><button type="submit" class="btn small primary">Notiz hinzufügen</button></div></form>
@@ -152,9 +153,9 @@ export function renderPeople(box, st, ctx, ui) {
   }
   const by = t => (p.entries || []).filter(x => x.type === t).sort((a, b) => b.date.localeCompare(a.date));
   box.innerHTML = `<div class="stack">
-    <div><button type="button" class="btn small ghost" id="pp-back">← Alle Menschen</button></div>
+    <div><button type="button" class="btn small ghost" id="pp-back">${icon("chevron-left", { size: 16 })} Alle Menschen</button></div>
     <section class="card stack">
-      <div class="row" style="flex-wrap:nowrap"><input class="input" type="text" id="pp-ename" value="${esc(p.name)}" aria-label="Name" style="font-family:var(--rf-serif);font-size:22px;font-weight:600"></div>
+      <div class="row" style="flex-wrap:nowrap"><input class="input" type="text" id="pp-ename" value="${esc(p.name)}" aria-label="Name" style="font-size:20px;font-weight:700"></div>
       <input class="input" type="text" id="pp-rel" value="${esc(p.relation || "")}" placeholder="Beziehung, z. B. mein Vater" aria-label="Beziehung">
       <form class="stack" id="pp-add" style="gap:8px;margin-top:6px">
         <div class="seg" id="pp-type">${ENTRY_TYPES.map(t => `<button type="button" data-t="${t}" aria-pressed="${(ui.type || "Geschichte") === t}">${t}</button>`).join("")}</div>
@@ -203,7 +204,7 @@ export function renderZoom(box, st, ctx, ui) {
   box.innerHTML = `<div class="stack">
     <section class="card stack">
       <h2>Rauszoomen · KW ${isoWeek(d).week} · ${esc(shortDate(mon).slice(0, 6))}–${esc(shortDate(addDays(mon, 6)).slice(0, 6))}</h2>
-      ${qs.map((q, i) => `<label class="field"><span class="serif" style="font-size:18px;color:var(--rf-ink)">${esc(q)}</span>
+      ${qs.map((q, i) => `<label class="field"><span style="font-size:18px;line-height:1.45;color:var(--ink);font-weight:500">${esc(q)}</span>
         <textarea class="input" rows="3" data-q="${i}">${esc(saved?.answers[i]?.a || "")}</textarea></label>`).join("")}
       <div class="row"><button type="button" class="btn primary" id="rz-save">${saved ? "Änderungen speichern" : "Speichern"}</button>
         <span class="note">${saved ? `Gespeichert am ${esc(shortDay(saved.date))}` : "Jede Woche drei wechselnde Fragen. Den Katalog änderst du in den Einstellungen."}</span></div>

@@ -1,5 +1,6 @@
 // Rezepte: Sammlung mit Nährwerten und Kosten aus der Zutaten-Datenbank, Alternativen je Zutat,
 // Filter/Sortierung (v. a. Eiweiß pro € und pro 100 g) und Schnellerfassung per Textzeilen.
+import { icon } from "../core/icons.js";
 import { $, $$, esc, openSheet, toast } from "../core/ui.js";
 import { watchCollection, watchDoc, put, merge, remove, newId } from "../core/data.js";
 import { effectiveIngredients, effectiveRecipes, resolveLine, analyze, norm, proteinPerEuroIng } from "./rezepte-core.js";
@@ -133,7 +134,7 @@ function openRecipe(st, id, ctx) {
           <div class="row" style="flex-wrap:nowrap;gap:6px"><button type="button" class="btn icon small" data-sv="-1" aria-label="Weniger Portionen">−</button><span class="small">${servings} Portion${servings === 1 ? "" : "en"}</span><button type="button" class="btn icon small" data-sv="1" aria-label="Mehr Portionen">+</button></div></div>
         <ul class="sortlist ilist">${a.items.map((it, i) => `<li><button type="button" class="ibtn" data-i="${i}" ${it.ing ? "" : "disabled"}>
             <span class="name">${esc(it.ing ? it.ing.name : it.text)}<small>${esc(it.text)}${it.ing ? "" : " · nicht berechnet"}</small></span>
-            <span class="num small">${it.grams ? fmt(it.grams * f) + " g" : ""}</span>${it.ing ? `<span class="muted small" aria-hidden="true">›</span>` : ""}</button></li>`).join("")}</ul>
+            <span class="num small">${it.grams ? fmt(it.grams * f) + " g" : ""}</span>${it.ing ? `<span class="muted" aria-hidden="true">${icon("chevron-right", { size: 16 })}</span>` : ""}</button></li>`).join("")}</ul>
         <p class="note">Tippe auf eine Zutat für Alternativen.</p>
         ${r.steps ? `<div><h2 style="margin-bottom:6px">Zubereitung</h2><ol class="steps">${r.steps.split("\n").filter(x => x.trim()).map(x => `<li>${esc(x)}</li>`).join("")}</ol></div>` : ""}
         ${r.note ? `<p class="note">${esc(r.note)}</p>` : ""}
@@ -215,7 +216,7 @@ function openForm(st, recipe, ctx) {
       const opts = sel => `<option value="">– nicht berechnen –</option>` + ings.map(i => `<option value="${esc(i.id)}" ${i.id === sel ? "selected" : ""}>${esc(i.name)}</option>`).join("");
       $("#rf-preview", s).innerHTML = lines().map((l, k) => {
         const r = resolve(l, ings), unknown = !r.ing && r.amount != null && !(l in chosen);
-        return `<div class="pline ${r.ing ? "ok" : unknown ? "warn" : ""}" data-k="${k}"><span class="pl-text">${r.ing ? "✓" : unknown ? "?" : "–"} ${esc(l)}</span>
+        return `<div class="pline ${r.ing ? "ok" : unknown ? "warn" : ""}" data-k="${k}"><span class="pl-text">${r.ing ? icon("check", { size: 15 }) : unknown ? "?" : "–"} ${esc(l)}</span>
           <span class="row" style="flex-wrap:nowrap;gap:6px"><select class="input" data-line="${esc(l)}" aria-label="Zutat für ${esc(l)}">${opts(r.ingId)}</select>
           <span class="num small" style="min-width:56px;text-align:right">${r.ing ? fmt(r.grams) + " g" : ""}</span>
           ${unknown ? `<button type="button" class="btn small" data-new="${esc(r.name)}" data-line="${esc(l)}">Anlegen</button>` : ""}</span></div>`;
@@ -267,7 +268,7 @@ function openIngredient(st, id, opts, ctx) {
         <div class="nutri">${numIn("price", "Preis €/kg", 2)}</div>
         <div><h2 style="margin-bottom:6px">Gewicht einer Einheit (g)</h2><div class="nutri">${UNIT_FIELDS.map(u => `<label class="field"><span>${u}</span><input class="input num" type="text" inputmode="decimal" data-u="${u}" value="${d.units?.[u] != null ? fmt(d.units[u], 1) : ""}"></label>`).join("")}</div></div>
         <div class="stack" style="gap:8px"><h2>Alternativen</h2>
-          <div class="chips" id="ig-alts">${(d.alts || []).map(a => ings.find(i => i.id === a)).filter(Boolean).map(i => `<button type="button" class="chip" data-rm="${esc(i.id)}" aria-label="${esc(i.name)} entfernen">${esc(i.name)} ×</button>`).join("") || `<span class="muted small">keine</span>`}</div>
+          <div class="chips" id="ig-alts">${(d.alts || []).map(a => ings.find(i => i.id === a)).filter(Boolean).map(i => `<button type="button" class="chip" data-rm="${esc(i.id)}" aria-label="${esc(i.name)} entfernen">${esc(i.name)} ${icon("x", { size: 14 })}</button>`).join("") || `<span class="muted small">keine</span>`}</div>
           <div class="row" style="flex-wrap:nowrap"><select class="input" id="ig-addalt" aria-label="Alternative hinzufügen"><option value="">Alternative hinzufügen …</option>${ings.filter(i => i.id !== cur?.id && !(d.alts || []).includes(i.id)).map(i => `<option value="${esc(i.id)}">${esc(i.name)}</option>`).join("")}</select></div></div>
         <p class="err" id="ig-err" hidden></p>
         <div class="sheet-foot">${cur ? `<button type="button" class="btn danger" data-del style="margin-right:auto">Löschen</button>` : ""}<button type="button" class="btn" data-x>Abbrechen</button><button type="button" class="btn primary" data-save>Speichern</button></div>`;

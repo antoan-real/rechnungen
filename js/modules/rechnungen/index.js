@@ -2,6 +2,7 @@
 // gleiche Bedienung, gleiche Daten unter users/{uid}/invoices, customers und settings/profile.
 // Neu: Status bezahlt/offen pro Rechnung (Feld "paid") für die Startseite.
 import { deliverFile, loadScript, esc as escHtml } from "../../core/ui.js";
+import { icon } from "../../core/icons.js";
 import { watchCollection, put, remove, currentUid } from "../../core/data.js";
 
 const LIBS = {
@@ -370,14 +371,14 @@ export function mount(root, ctx) {
     return `<div class="irow" data-i="${i}">
       <span class="pos">${i + 1}</span>
       <input type="text" class="num f-qty" inputmode="decimal" data-f="qty" id="it-qty-${i}" value="${esc(it.qty)}" aria-label="${esc(t("qty"))}">
-      <span class="combo f-unit"><input type="text" data-f="unit" id="it-unit-${i}" value="${esc(it.unit)}" autocomplete="off" aria-label="${esc(t("unit"))}"><button type="button" data-op="units" tabindex="-1" aria-label="${esc(t("unit"))}" aria-haspopup="listbox">▾</button></span>
+      <span class="combo f-unit"><input type="text" data-f="unit" id="it-unit-${i}" value="${esc(it.unit)}" autocomplete="off" aria-label="${esc(t("unit"))}"><button type="button" data-op="units" tabindex="-1" aria-label="${esc(t("unit"))}" aria-haspopup="listbox">${icon("chevron-down", { size: 16 })}</button></span>
       <textarea class="f-text" data-f="text" id="it-text-${i}" rows="1" aria-label="${esc(t("text"))}">${esc(it.text)}</textarea>
       <input type="text" class="num f-price" inputmode="decimal" data-f="price" id="it-price-${i}" value="${esc(it.price)}" aria-label="${esc(t("price"))}">
       <span class="tot">${fmtMoney(total)}</span>
       <span class="ops">
-        <button type="button" class="btn icon small" data-op="up" title="${esc(t("moveUp"))}" aria-label="${esc(t("moveUp"))}">↑</button>
-        <button type="button" class="btn icon small" data-op="down" title="${esc(t("moveDown"))}" aria-label="${esc(t("moveDown"))}">↓</button>
-        <button type="button" class="btn icon small danger" data-op="rm" title="${esc(t("remove"))}" aria-label="${esc(t("remove"))}">×</button>
+        <button type="button" class="btn icon small" data-op="up" title="${esc(t("moveUp"))}" aria-label="${esc(t("moveUp"))}">${icon("arrow-up")}</button>
+        <button type="button" class="btn icon small" data-op="down" title="${esc(t("moveDown"))}" aria-label="${esc(t("moveDown"))}">${icon("arrow-down")}</button>
+        <button type="button" class="btn icon small danger" data-op="rm" title="${esc(t("remove"))}" aria-label="${esc(t("remove"))}">${icon("x")}</button>
       </span></div>`;
   }
   function renderItems() {
@@ -392,7 +393,7 @@ export function mount(root, ctx) {
       <input type="text" data-f="label" id="d-label-${i}" value="${esc(d.label)}" placeholder="${esc(t("dedLabel"))}" aria-label="${esc(t("dedLabel"))}">
       <input type="text" data-f="ref" id="d-ref-${i}" value="${esc(d.ref)}" placeholder="${esc(t("dedRef"))}" aria-label="${esc(t("dedRef"))}">
       <input type="text" class="num" inputmode="decimal" data-f="amount" id="d-amount-${i}" value="${esc(d.amount)}" placeholder="0,00" aria-label="${esc(t("dedAmount"))}">
-      <button type="button" class="btn icon small danger" data-op="rm" aria-label="${esc(t("remove"))}">×</button></div>`).join("");
+      <button type="button" class="btn icon small danger" data-op="rm" aria-label="${esc(t("remove"))}">${icon("x")}</button></div>`).join("");
   }
   function renderTotals() {
     if (!cur) return;
@@ -929,15 +930,12 @@ const euro = n => n.toLocaleString("de-DE", { style: "currency", currency: "EUR"
 
 export const widgets = {
   "open-invoices"(el, ctx) {
-    el.innerHTML = `<div class="tile-head"><h2>Offene Rechnungen</h2><a href="#rechnungen">Alle</a></div><div class="empty">Lade …</div>`;
+    el.innerHTML = `<div class="tile-head"><h2>Rechnungen</h2></div><div class="empty">Lade …</div>`;
     return watchCollection("invoices", list => {
-      const open = list.filter(i => !i.paid).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      const open = list.filter(i => !i.paid);
       const sum = open.reduce((a, i) => a + invoiceTotals(i), 0);
-      const days = iso => Math.max(0, Math.round((Date.now() - new Date(iso + "T00:00:00")) / 86400000));
-      el.innerHTML = `<div class="tile-head"><h2>Offene Rechnungen</h2><a href="#rechnungen">Alle</a></div>` + (open.length ? `
-        <div class="kpi"><div><b>${open.length}</b><span>offen</span></div><div><b>${escHtml(euro(sum))}</b><span>ausstehend</span></div></div>
-        <ul class="sortlist">${open.slice(0, 4).map(i => `<li><span class="name">Nr. ${escHtml(String(i.number).padStart(2, "0"))} / ${escHtml(i.year)} · ${escHtml(i.customer?.name || "")}<small>${i.date ? `vor ${days(i.date)} Tagen` : ""}${i.bv ? " · " + escHtml(i.bv) : ""}</small></span><span class="num">${escHtml(euro(invoiceTotals(i)))}</span></li>`).join("")}</ul>`
-        : `<p class="muted" style="margin:0">Alle Rechnungen sind als bezahlt markiert.</p>`);
+      el.innerHTML = `<div class="tile-head"><h2>Rechnungen</h2></div>
+        <a href="#rechnungen" class="kv" style="color:inherit;text-decoration:none"><b>${open.length}</b><span>offen${open.length ? ` · ${escHtml(euro(sum))}` : " · alles bezahlt"}</span></a>`;
     });
   }
 };

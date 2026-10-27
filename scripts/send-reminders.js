@@ -70,7 +70,7 @@ for (const [uid, tokens] of byUser) {
     if (due.length) messages.push({
       keys: due.map(h => h.id), url: "./#gewohnheiten", tag: `habits-${date}-${due.map(h => h.id).join("-")}`,
       title: due.length === 1 ? "Erinnerung" : `${due.length} Gewohnheiten offen`,
-      body: due.map(h => (h.emoji ? h.emoji + " " : "") + h.name).join(", ")
+      body: due.map(h => h.name).join(", ")
     });
     for (const r of dueReflect(reflectCfg, reflectState, date, hhmm, sent, CATCH_UP_MINUTES))
       messages.push({ keys: [r.key], url: "./#reflektor", tag: `${r.key}-${date}`, title: r.title, body: r.body });

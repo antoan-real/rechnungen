@@ -3,6 +3,7 @@
 // Datenmodell: ein Dokument users/{uid}/uni/plan
 //   { start: "2024-10", modules: [{ id, block, slot, name, examType, passed, grade, note }],
 //     examTypes: [{ id, name, color }], upcoming: [{ moduleId, date }] }
+import { icon } from "../core/icons.js";
 import { $, $$, esc, openSheet, toast } from "../core/ui.js";
 import { watchDoc, put, newId } from "../core/data.js";
 import { today, daysBetween, shortDate } from "../core/dates.js";
@@ -22,7 +23,7 @@ const PLAN = [
   ["Bachelorarbeit", "Bachelorarbeit", "Projekt: Digitale Strategien in der Immobilienwirtschaft"]
 ];
 const DEFAULT_TYPES = [
-  ["Klausur", "#2a78d6"], ["Hausarbeit", "#6250d6"], ["Präsentation", "#eb6834"],
+  ["Klausur", "#2a78d6"], ["Hausarbeit", "#eb6834"], ["Präsentation", "#6250d6"],
   ["Projektbericht", "#1baf7a"], ["Fallstudie", "#e87ba4"], ["Mündliche Prüfung", "#eda100"]
 ];
 const MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
@@ -54,7 +55,14 @@ function stats(plan) {
 function watchPlan(cb) {
   let seeded = false;
   return watchDoc("uni", "plan", (data, meta) => {
-    if (data) { cb(data); return; }
+    if (data) {
+      // Design-System: Hausarbeit ist orange. Nur umstellen, wenn die alten Standardfarben noch unverändert sind.
+      const h = data.examTypes?.find(t => t.id === "t1"), p = data.examTypes?.find(t => t.id === "t2");
+      if (!meta.fromCache && !data.colorsV2 && h?.name === "Hausarbeit" && h.color === "#6250d6" && p?.color === "#eb6834") {
+        put("uni", "plan", { ...data, colorsV2: true, examTypes: data.examTypes.map(t => t.id === "t1" ? { ...t, color: "#eb6834" } : t.id === "t2" ? { ...t, color: "#6250d6" } : t) }).catch(() => {});
+      }
+      cb(data); return;
+    }
     if (meta.fromCache || seeded) return;
     seeded = true;
     const p = seedPlan(); cb(p);
@@ -93,15 +101,15 @@ export function mount(el, ctx) {
             <button type="button" class="m-check" data-check aria-pressed="${m.passed}" aria-label="${esc(m.name)} ${m.passed ? "nicht mehr als bestanden markieren" : "als bestanden abhaken"}"></button></span></div>`;
         }).join("");
       }).join("")}</div></section>
-      <section class="card stack"><div><h2>Meine nächsten Prüfungen</h2><p class="note" style="margin-top:6px">Reihenfolge mit dem Griff ⠿ ziehen. Die oberste Prüfung erscheint auf der Startseite.</p></div>
+      <section class="card stack"><div><h2>Meine nächsten Prüfungen</h2><p class="note" style="margin-top:6px">Reihenfolge am Griff links ziehen. Die oberste Prüfung erscheint auf der Startseite.</p></div>
         <ul class="exams" id="un-exams">${plan.upcoming.map((u, i) => {
           const m = plan.modules.find(x => x.id === u.moduleId); if (!m) return "";
           const t = typeOf(plan, m.examType), days = u.date ? daysBetween(today(), u.date) : null;
           return `<li class="exam ${i === 0 ? "first" : ""}" data-id="${esc(m.id)}">
-            <button type="button" class="handle" aria-label="${esc(m.name)} verschieben (Pfeiltasten)">⠿</button>
+            <button type="button" class="handle" aria-label="${esc(m.name)} verschieben (Pfeiltasten)">${icon("grip")}</button>
             <div class="e-main"><b>${esc(m.name)}</b><small>${t ? `<i style="background:${esc(t.color)}"></i>${esc(t.name)}` : "Prüfungsform offen"}${days != null ? ` · ${days === 0 ? "heute" : days > 0 ? `in ${days} Tagen` : `vor ${-days} Tagen`}` : ""}</small></div>
             <input type="date" class="input" value="${esc(u.date || "")}" aria-label="Geplantes Datum für ${esc(m.name)}">
-            <button type="button" class="btn icon small ghost" data-rm aria-label="${esc(m.name)} aus der Liste nehmen">×</button></li>`;
+            <button type="button" class="btn icon small ghost" data-rm aria-label="${esc(m.name)} aus der Liste nehmen">${icon("x")}</button></li>`;
         }).join("")}</ul>
         ${plan.upcoming.length ? "" : `<p class="muted" style="margin:0">Noch keine Prüfungen geplant.</p>`}
         <div class="row" style="flex-wrap:nowrap"><select class="input" id="un-add" aria-label="Offenes Modul wählen"><option value="">Offenes Modul hinzufügen …</option>${plan.modules.filter(m => !m.passed && !plan.upcoming.some(u => u.moduleId === m.id)).map(m => `<option value="${esc(m.id)}">${esc(blockRange(plan, m.block).label)} · ${esc(m.name)}</option>`).join("")}</select>
@@ -219,7 +227,7 @@ export function mount(el, ctx) {
       const draw = () => {
         s.innerHTML = `<div class="sheet-head"><h3>Prüfungsformen</h3></div>
           <p class="note">Name und Farbe ändern. Wird eine Prüfungsform gelöscht, sind die betroffenen Module danach „noch offen“.</p>
-          <div class="stack" id="ty-list">${types.map((t, i) => `<div class="type-row" data-i="${i}"><input type="color" value="${esc(t.color)}" aria-label="Farbe für ${esc(t.name)}"><input class="input" type="text" value="${esc(t.name)}" aria-label="Name der Prüfungsform"><button type="button" class="btn icon small danger" data-del aria-label="${esc(t.name)} löschen">×</button></div>`).join("")}</div>
+          <div class="stack" id="ty-list">${types.map((t, i) => `<div class="type-row" data-i="${i}"><input type="color" value="${esc(t.color)}" aria-label="Farbe für ${esc(t.name)}"><input class="input" type="text" value="${esc(t.name)}" aria-label="Name der Prüfungsform"><button type="button" class="btn icon small danger" data-del aria-label="${esc(t.name)} löschen">${icon("x")}</button></div>`).join("")}</div>
           <button type="button" class="btn" id="ty-add">+ Prüfungsform</button>
           <div class="sheet-foot"><button type="button" class="btn" data-x>Abbrechen</button><button type="button" class="btn primary" data-save>Speichern</button></div>`;
         $("[data-x]", s).onclick = close;
@@ -248,12 +256,13 @@ export const widgets = {
     return watchPlan(plan => {
       const u = plan.upcoming[0], m = u && plan.modules.find(x => x.id === u.moduleId);
       const st = stats(plan);
-      if (!m) { el.innerHTML = `<div class="tile-head"><h2>Nächste Prüfung</h2><a href="#uni">Uni</a></div><p class="muted" style="margin:0">Noch keine Prüfung geplant. <a href="#uni">Jetzt planen</a></p><p class="note">${st.passed} von ${st.total} Modulen bestanden</p>`; return; }
+      if (!m) { el.innerHTML = `<div class="tile-head"><h2>Nächste Prüfung</h2></div><p class="t-title">Keine geplant</p><p class="t-sub"><a href="#uni">Jetzt planen</a> · ${st.passed}/${st.total} bestanden</p>`; return; }
       const t = typeOf(plan, m.examType), days = u.date ? daysBetween(today(), u.date) : null;
-      el.innerHTML = `<div class="tile-head"><h2>Nächste Prüfung</h2><a href="#uni">Uni</a></div>
-        <div><b style="font-size:17px">${esc(m.name)}</b></div>
-        <div class="row small muted">${t ? `<span class="legend"><span><i style="background:${esc(t.color)}"></i>${esc(t.name)}</span></span>` : ""}${u.date ? `<span>${shortDate(u.date)} · <b style="color:var(--ink)">${days === 0 ? "heute" : days > 0 ? `in ${days} Tagen` : `vor ${-days} Tagen`}</b></span>` : "<span>Datum noch offen</span>"}</div>
-        <p class="note">${plan.upcoming.length > 1 ? `Danach: ${esc(plan.modules.find(x => x.id === plan.upcoming[1].moduleId)?.name || "")} · ` : ""}${st.passed} von ${st.total} Modulen bestanden</p>`;
+      el.innerHTML = `<div class="tile-head"><h2>Nächste Prüfung</h2></div>
+        <a href="#uni" style="color:inherit;text-decoration:none;display:flex;flex-direction:column;gap:6px">
+        <p class="t-title" style="overflow-wrap:anywhere">${esc(m.name)}</p>
+        ${t ? `<span class="small" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;color:color-mix(in srgb, ${esc(t.color)} 78%, var(--ink))"><i style="width:9px;height:9px;border-radius:50%;background:${esc(t.color)};flex:none"></i>${esc(t.name)}</span>` : ""}
+        <p class="t-sub">${u.date ? `${days === 0 ? "heute" : days > 0 ? `in ${days} Tagen` : `vor ${-days} Tagen`} · ${shortDate(u.date)}` : "Datum noch offen"}</p></a>`;
     });
   }
 };
