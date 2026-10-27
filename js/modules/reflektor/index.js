@@ -267,8 +267,8 @@ export const widgets = {
       const c = pickToday(st, today());
       if (!c) { el.innerHTML = `<div class="tile-head"><h2>Gedanke des Tages</h2></div><p class="muted" style="margin:0">Die Karten werden eingerichtet …</p>`; return; }
       el.innerHTML = `<div class="tile-head"><h2>Gedanke des Tages</h2><a href="#reflektor">Alle Karten</a></div>
-        <div class="stack" style="gap:10px"><h3 style="font-size:20px;margin:0;line-height:1.3">${esc(c.title)}</h3>
-        <p class="serif" style="font-size:17px;line-height:1.5">${esc(c.text)}</p>
+        <div class="stack" style="gap:10px"><h3 style="font-size:calc(20px * var(--fs));margin:0;line-height:1.3">${esc(c.title)}</h3>
+        <p class="serif" style="font-size:calc(17px * var(--fs));line-height:1.5">${esc(c.text)}</p>
         <div class="row"><button type="button" class="fav" aria-pressed="${!!c.favorite}" aria-label="${c.favorite ? "Favorit entfernen" : "Als Favorit markieren"}">${icon("heart", { size: 22, fill: !!c.favorite })}</button>
         <button type="button" class="btn small" data-open>Notiz dazu</button></div></div>`;
       el.querySelector(".fav").onclick = () => merge("cards", c.id, { favorite: !c.favorite }).catch(fail);
@@ -304,7 +304,7 @@ export const widgets = {
       el.hidden = !m;
       if (!m) return;
       el.innerHTML = `<div class="tile-head"><h2>Erinnerung</h2><a href="#reflektor">Rückblick</a></div>
-        <p class="small muted" style="margin:0">${esc(shortDay(m.date))} · ${esc(m.kind)}</p><p class="serif" style="font-size:17px">${esc(m.text)}</p>`;
+        <p class="small muted" style="margin:0">${esc(shortDay(m.date))} · ${esc(m.kind)}</p><p class="serif" style="font-size:calc(17px * var(--fs))">${esc(m.text)}</p>`;
     });
   }
 };

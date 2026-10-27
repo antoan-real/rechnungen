@@ -1,6 +1,6 @@
 // Einstellungen: Name, Design, Navigation, Dashboard-Kacheln, Benachrichtigungen, Installation, Konto.
 import { $, $$, esc } from "../core/ui.js";
-import { navLayout, dashboardLayout, applyTheme } from "../core/settings.js";
+import { navLayout, dashboardLayout, applyTheme, getView, applyView, ZOOM, FONT } from "../core/settings.js";
 import { icon } from "../core/icons.js";
 import { moduleById } from "./registry.js";
 import { auth, sendPasswordResetEmail } from "../firebase.js";
@@ -18,6 +18,15 @@ export function mount(el, ctx) {
           <div class="seg" id="st-theme" role="group" aria-label="Design">
             <button type="button" data-v="light">Hell</button><button type="button" data-v="dark">Dunkel</button><button type="button" data-v="system">Automatisch</button>
           </div></div>
+        <div class="field"><span>Anzeigegröße (wie Strg + Mausrad: kleiner = mehr passt auf den Bildschirm)</span>
+          <div class="scale-row"><button type="button" class="btn icon small" data-step="zoom:-1" aria-label="Anzeige verkleinern">${icon("minus")}</button>
+          <input type="range" id="st-zoom" min="${ZOOM.min}" max="${ZOOM.max}" step="${ZOOM.step}" aria-label="Anzeigegröße">
+          <button type="button" class="btn icon small" data-step="zoom:1" aria-label="Anzeige vergrößern">${icon("plus")}</button><b class="num" id="st-zoom-v"></b></div></div>
+        <div class="field"><span>Schriftgröße</span>
+          <div class="scale-row"><button type="button" class="btn icon small" data-step="font:-1" aria-label="Schrift verkleinern">${icon("minus")}</button>
+          <input type="range" id="st-font" min="${FONT.min}" max="${FONT.max}" step="${FONT.step}" aria-label="Schriftgröße">
+          <button type="button" class="btn icon small" data-step="font:1" aria-label="Schrift vergrößern">${icon("plus")}</button><b class="num" id="st-font-v"></b></div></div>
+        <div class="row" style="justify-content:space-between"><p class="note">Gilt nur für dieses Gerät – Handy und PC getrennt.</p><button type="button" class="linkbtn" id="st-view-reset">Zurücksetzen</button></div>
       </section>
 
       <section class="card stack" id="notif">
@@ -68,6 +77,26 @@ export function mount(el, ctx) {
   // Umschalten über die Kopfleiste spiegeln
   const onTheme = () => drawTheme(document.documentElement.dataset.theme || "system");
   document.addEventListener("db-theme", onTheme);
+
+  /* Anzeigegröße und Schriftgröße (pro Gerät) */
+  const pct = v => Math.round(v * 100) + " %";
+  function drawView() {
+    const v = getView();
+    $("#st-zoom", el).value = v.zoom; $("#st-zoom-v", el).textContent = pct(v.zoom);
+    $("#st-font", el).value = v.font; $("#st-font-v", el).textContent = pct(v.font);
+  }
+  const setView = patch => { applyView({ ...getView(), ...patch }); drawView(); };
+  // Anzeigegröße erst beim Loslassen anwenden, sonst springt der Regler unter dem Finger weg
+  $("#st-zoom", el).addEventListener("input", e => { $("#st-zoom-v", el).textContent = pct(+e.target.value); });
+  $("#st-zoom", el).addEventListener("change", e => setView({ zoom: +e.target.value }));
+  $("#st-font", el).addEventListener("input", e => setView({ font: +e.target.value }));
+  el.addEventListener("click", e => {
+    const b = e.target.closest("[data-step]"); if (!b) return;
+    const [k, d] = b.dataset.step.split(":"), lim = k === "zoom" ? ZOOM : FONT, v = getView()[k];
+    setView({ [k]: Math.min(lim.max, Math.max(lim.min, v + Number(d) * lim.step)) });
+  });
+  $("#st-view-reset", el).onclick = () => setView({ zoom: 1, font: 1 });
+  drawView();
 
   /* Navigation */
   function drawNav() {

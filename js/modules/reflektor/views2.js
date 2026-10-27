@@ -85,7 +85,7 @@ export function renderWeeks(box, st, ctx) {
   const years = Math.floor(lived / 52), weeks = lived % 52;
   box.innerHTML = `<section class="card stack">
     <h2>Leben in Wochen</h2>
-    <p class="serif" style="font-size:18px">Du bist ${years} Jahre und ${weeks} Woche${weeks === 1 ? "" : "n"} alt – Woche ${fmt(lived + 1, 0)} von ${fmt(TOTAL, 0)}. Jedes Kästchen ist eine Woche. Mach die nächste zu einer, an die du dich gern erinnerst.</p>
+    <p class="serif" style="font-size:calc(18px * var(--fs))">Du bist ${years} Jahre und ${weeks} Woche${weeks === 1 ? "" : "n"} alt – Woche ${fmt(lived + 1, 0)} von ${fmt(TOTAL, 0)}. Jedes Kästchen ist eine Woche. Mach die nächste zu einer, an die du dich gern erinnerst.</p>
     <div class="legend-row"><span><i style="background:var(--muted)"></i>gelebt (${fmt(Math.min(100, lived / TOTAL * 100))} %)</span><span><i style="background:var(--rf-accent)"></i>diese Woche</span><span><i style="background:transparent;border:1px solid var(--line)"></i>noch vor dir</span></div>
     <div class="weeks-wrap"><canvas id="lw-canvas" role="img" aria-label="${fmt(lived, 0)} von ${fmt(TOTAL, 0)} Lebenswochen gelebt"></canvas></div>
     <p class="note">Geburtsdatum ändern: Einstellungen des Lebensreflektors.</p></section>`;
@@ -127,13 +127,13 @@ export function renderReview(box, st, ctx, ui, nav) {
       ${looks.length ? looks.map(l => `<div class="lookback"><small>${esc(l.label)} · ${esc(shortDay(l.date))} hast du geschrieben:</small>${l.lines.map(x => `<p class="serif"><span class="muted small">${esc(x.kind)}:</span> ${esc(x.text)}</p>`).join("")}</div>`).join("")
         : `<p class="muted" style="margin:0">Hier erscheint, was du heute vor einem Monat und vor einem Jahr geschrieben hast.</p>`}</section>
       <section class="card stack"><h2>Zufällige Erinnerung</h2>
-      ${mem ? `<p class="small muted" style="margin:0">${esc(shortDay(mem.date))} · ${esc(mem.kind)}</p><p class="serif" style="font-size:19px">${esc(mem.text)}</p><div><button type="button" class="btn small" id="rv-more">Noch eine</button></div>`
+      ${mem ? `<p class="small muted" style="margin:0">${esc(shortDay(mem.date))} · ${esc(mem.kind)}</p><p class="serif" style="font-size:calc(19px * var(--fs))">${esc(mem.text)}</p><div><button type="button" class="btn small" id="rv-more">Noch eine</button></div>`
         : `<p class="muted" style="margin:0">Sobald deine Einträge älter als einen Monat sind, holt die App hier ab und zu einen zurück.</p>`}</section></div>`;
   }
   if (ui.view === "momente") {
     const ms = Object.values(st.journal).filter(j => j.moment?.trim()).sort((a, b) => b.date.localeCompare(a.date));
     let last = "";
-    html += `<section class="card stack"><h2>Alltagsmomente</h2>${ms.length ? `<ul class="timeline">${ms.map(j => { const m = j.date.slice(0, 7), head = m !== last ? `<li class="tl-month" aria-hidden="true" style="list-style:none">${esc(monthName(m))}</li>` : ""; last = m; return head + `<li><small>${esc(shortDay(j.date))}</small><p class="serif" style="font-size:17px">${esc(j.moment)}</p></li>`; }).join("")}</ul>`
+    html += `<section class="card stack"><h2>Alltagsmomente</h2>${ms.length ? `<ul class="timeline">${ms.map(j => { const m = j.date.slice(0, 7), head = m !== last ? `<li class="tl-month" aria-hidden="true" style="list-style:none">${esc(monthName(m))}</li>` : ""; last = m; return head + `<li><small>${esc(shortDay(j.date))}</small><p class="serif" style="font-size:calc(17px * var(--fs))">${esc(j.moment)}</p></li>`; }).join("")}</ul>`
       : `<p class="muted" style="margin:0">Noch keine Alltagsmomente. Halte im Check-in fest, was heute ganz normal war – genau das wird später wertvoll.</p>`}</section>`;
   }
   if (ui.view === "jahr") {

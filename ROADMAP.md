@@ -44,6 +44,7 @@ Jeder Bereich ist ein eigenes Modul unter `js/modules/`, Daten liegen pro Nutzer
 - Startseite: Hervorhebungs-Kachel Gewohnheiten (Zahl, Serie, Segmentbalken), Höchstgewicht 8 Wochen,
   Nächste Prüfung und Rechnungen nebeneinander, Gedanke des Tages; am Desktop Raster bis 1200px
 - Lebensreflektor ruhiger (größere Kartenschrift, gedämpfter Akzent); Abschnitte frei auf Leiste / „Mehr“ / aus
+- Einstellungen: Anzeigegröße (wie Strg + Mausrad, 60–150 %) und Schriftgröße (80–140 %), pro Gerät gespeichert
 
 ## Phase 5
 - Englisch lernen

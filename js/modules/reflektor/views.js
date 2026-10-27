@@ -96,8 +96,8 @@ export function renderComplaints(box, st, ctx, ui) {
       ${!ui.step ? `<form class="stack" id="mk-form"><textarea class="input" id="mk-text" rows="3" placeholder="z. B. Die Bahn ist schon wieder zu spät" aria-label="Worüber du dich ärgerst">${esc(ui.text || "")}</textarea>
           <div><button type="submit" class="btn primary">Umdrehen</button></div></form>
           <p class="note">Schreib es kurz auf. Danach bekommst du eine Frage und eine passende Perspektiv-Karte.</p>`
-      : `<p class="serif" style="font-size:17px">„${esc(ui.text)}“</p>
-         <div class="lookback"><small>Frag dich:</small><p class="serif" style="font-size:19px">${esc(ui.question)}</p></div>
+      : `<p class="serif" style="font-size:calc(17px * var(--fs))">„${esc(ui.text)}“</p>
+         <div class="lookback"><small>Frag dich:</small><p class="serif" style="font-size:calc(19px * var(--fs))">${esc(ui.question)}</p></div>
          ${card ? cardHtml(card, { compact: true, label: "Perspektive", actions: `<button type="button" class="btn small ghost" id="mk-other">Andere Karte</button>` }) : ""}
          <label class="field"><span>Meine Umdeutung</span><textarea class="input" id="mk-reframe" rows="3" placeholder="Eigentlich ist das ein Zeichen, dass …">${esc(ui.reframe || "")}</textarea></label>
          <div class="row"><button type="button" class="btn primary" id="mk-save">Speichern</button><button type="button" class="btn" id="mk-cancel">Verwerfen</button></div>`}
@@ -155,7 +155,7 @@ export function renderPeople(box, st, ctx, ui) {
   box.innerHTML = `<div class="stack">
     <div><button type="button" class="btn small ghost" id="pp-back">${icon("chevron-left", { size: 16 })} Alle Menschen</button></div>
     <section class="card stack">
-      <div class="row" style="flex-wrap:nowrap"><input class="input" type="text" id="pp-ename" value="${esc(p.name)}" aria-label="Name" style="font-size:20px;font-weight:700"></div>
+      <div class="row" style="flex-wrap:nowrap"><input class="input" type="text" id="pp-ename" value="${esc(p.name)}" aria-label="Name" style="font-size:calc(20px * var(--fs));font-weight:700"></div>
       <input class="input" type="text" id="pp-rel" value="${esc(p.relation || "")}" placeholder="Beziehung, z. B. mein Vater" aria-label="Beziehung">
       <form class="stack" id="pp-add" style="gap:8px;margin-top:6px">
         <div class="seg" id="pp-type">${ENTRY_TYPES.map(t => `<button type="button" data-t="${t}" aria-pressed="${(ui.type || "Geschichte") === t}">${t}</button>`).join("")}</div>
@@ -204,7 +204,7 @@ export function renderZoom(box, st, ctx, ui) {
   box.innerHTML = `<div class="stack">
     <section class="card stack">
       <h2>Rauszoomen · KW ${isoWeek(d).week} · ${esc(shortDate(mon).slice(0, 6))}–${esc(shortDate(addDays(mon, 6)).slice(0, 6))}</h2>
-      ${qs.map((q, i) => `<label class="field"><span style="font-size:18px;line-height:1.45;color:var(--ink);font-weight:500">${esc(q)}</span>
+      ${qs.map((q, i) => `<label class="field"><span style="font-size:calc(18px * var(--fs));line-height:1.45;color:var(--ink);font-weight:500">${esc(q)}</span>
         <textarea class="input" rows="3" data-q="${i}">${esc(saved?.answers[i]?.a || "")}</textarea></label>`).join("")}
       <div class="row"><button type="button" class="btn primary" id="rz-save">${saved ? "Änderungen speichern" : "Speichern"}</button>
         <span class="note">${saved ? `Gespeichert am ${esc(shortDay(saved.date))}` : "Jede Woche drei wechselnde Fragen. Den Katalog änderst du in den Einstellungen."}</span></div>

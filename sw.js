@@ -1,5 +1,5 @@
 // Service Worker: App offline startbar machen. Bei jeder Änderung an App-Dateien VERSION erhöhen.
-const VERSION = "v7";
+const VERSION = "v8";
 const SHELL = `daily-shell-${VERSION}`;
 const RUNTIME = "daily-runtime";
 const FILES = [

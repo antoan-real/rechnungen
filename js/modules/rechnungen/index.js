@@ -1,7 +1,7 @@
 // Rechnungstool als Bereich. Übernommen aus der früheren Einzelseite (rechnungen-alt.html):
 // gleiche Bedienung, gleiche Daten unter users/{uid}/invoices, customers und settings/profile.
 // Neu: Status bezahlt/offen pro Rechnung (Feld "paid") für die Startseite.
-import { deliverFile, loadScript, esc as escHtml } from "../../core/ui.js";
+import { deliverFile, loadScript, esc as escHtml, uiZoom } from "../../core/ui.js";
 import { icon } from "../../core/icons.js";
 import { watchCollection, put, remove, currentUid } from "../../core/data.js";
 
@@ -755,13 +755,14 @@ export function mount(root, ctx) {
     const open = document.querySelector(".umenu");
     closeUnitMenu();
     if (open && open.dataset.i === String(i)) return;
-    const combo = btn.closest(".combo"), input = combo.querySelector("input"), r = combo.getBoundingClientRect();
+    const combo = btn.closest(".combo"), input = combo.querySelector("input"), z = uiZoom(), rv = combo.getBoundingClientRect();
+    const r = { left: rv.left / z, top: rv.top / z, bottom: rv.bottom / z, width: rv.width / z }; // in Seiten-Pixel umrechnen
     const m = document.createElement("div");
     m.className = "umenu"; m.dataset.i = i; m.setAttribute("role", "listbox");
     m.innerHTML = UNITS.map(u => `<button type="button" role="option" aria-selected="${u === input.value}">${esc(u)}</button>`).join("");
     m.style.left = r.left + "px"; m.style.minWidth = r.width + "px";
-    root.querySelector(".rb").appendChild(m);
-    const below = r.bottom + 4 + m.offsetHeight <= window.innerHeight;
+    document.body.appendChild(m); // außerhalb der Ansicht, damit „fixed“ sich auf das Fenster bezieht
+    const below = r.bottom + 4 + m.offsetHeight <= window.innerHeight / z;
     m.style.top = (below ? r.bottom + 4 : r.top - 4 - m.offsetHeight) + "px";
     m.addEventListener("click", e => {
       const o = e.target.closest("button"); if (!o) return;
@@ -909,6 +910,7 @@ export function mount(root, ctx) {
   })();
 
   return () => {
+    closeUnitMenu();
     saveDraft();
     closeUnitMenu();
     ro.disconnect();

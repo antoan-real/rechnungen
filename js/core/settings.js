@@ -53,3 +53,21 @@ export function dashboardLayout(s = getSettings()) {
   const hidden = new Set(s.dashboard?.hidden || []);
   return order.map(id => { const w = WIDGETS.find(x => x.id === id); return { ...w, visible: !w.soon && !hidden.has(id) }; });
 }
+
+/* ---------- Anzeigegröße (wie Strg + Mausrad) und Schriftgröße, gespeichert pro Gerät ---------- */
+export const ZOOM = { min: 0.6, max: 1.5, step: 0.05 };
+export const FONT = { min: 0.8, max: 1.4, step: 0.05 };
+const readNum = (k, d) => { try { const n = parseFloat(localStorage.getItem(k)); return n > 0 ? n : d; } catch (e) { return d; } };
+export const getView = () => ({ zoom: readNum("db-zoom", 1), font: readNum("db-fs", 1) });
+export function applyView({ zoom, font } = getView()) {
+  const r = document.documentElement;
+  const z = Math.min(ZOOM.max, Math.max(ZOOM.min, Math.round(zoom * 100) / 100));
+  const f = Math.min(FONT.max, Math.max(FONT.min, Math.round(font * 100) / 100));
+  r.style.zoom = z === 1 ? "" : z;
+  if (f === 1) r.style.removeProperty("--fs"); else r.style.setProperty("--fs", f);
+  try {
+    z === 1 ? localStorage.removeItem("db-zoom") : localStorage.setItem("db-zoom", z);
+    f === 1 ? localStorage.removeItem("db-fs") : localStorage.setItem("db-fs", f);
+  } catch (e) {}
+  window.dispatchEvent(new Event("resize")); // Diagramme passen sich an
+}

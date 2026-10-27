@@ -1,6 +1,8 @@
 // Kleine UI-Helfer, die alle Module teilen.
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+/** Aktuelle Anzeigegröße (CSS zoom am <html>). Mauspositionen sind in Bildschirm-Pixeln, Stile in Seiten-Pixeln. */
+export const uiZoom = () => { const z = parseFloat(getComputedStyle(document.documentElement).zoom); return z > 0 ? z : 1; };
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 export function toast(msg, opts = {}) {
@@ -46,7 +48,7 @@ export function openSheet(build, opts = {}) {
 
 export function confirmBox(msg, yesLabel, onYes, opts = {}) {
   openSheet((s, close) => {
-    s.innerHTML = `<p style="margin:0;font-size:16px"></p><div class="sheet-foot"><button type="button" class="btn" data-no>Abbrechen</button><button type="button" class="btn ${opts.danger ? "danger" : "primary"}" data-yes></button></div>`;
+    s.innerHTML = `<p style="margin:0;font-size:calc(16px * var(--fs))"></p><div class="sheet-foot"><button type="button" class="btn" data-no>Abbrechen</button><button type="button" class="btn ${opts.danger ? "danger" : "primary"}" data-yes></button></div>`;
     s.querySelector("p").textContent = msg;
     s.querySelector("[data-yes]").textContent = yesLabel;
     s.querySelector("[data-no]").onclick = close;

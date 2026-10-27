@@ -26,6 +26,10 @@
       document.documentElement.dataset.theme = th;
       document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.content = th === "dark" ? "#0F1113" : "#F3F4F0");
     }
+    // Anzeigegröße und Schriftgröße gelten pro Gerät
+    const z = parseFloat(localStorage.getItem("db-zoom")), f = parseFloat(localStorage.getItem("db-fs"));
+    if (z > 0 && z !== 1) document.documentElement.style.zoom = z;
+    if (f > 0 && f !== 1) document.documentElement.style.setProperty("--fs", f);
   } catch (e) {}
 </script>
 </head>

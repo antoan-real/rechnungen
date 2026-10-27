@@ -4,7 +4,7 @@
 //   { start: "2024-10", modules: [{ id, block, slot, name, examType, passed, grade, note }],
 //     examTypes: [{ id, name, color }], upcoming: [{ moduleId, date }] }
 import { icon } from "../core/icons.js";
-import { $, $$, esc, openSheet, toast } from "../core/ui.js";
+import { $, $$, esc, openSheet, toast, uiZoom } from "../core/ui.js";
 import { watchDoc, put, newId } from "../core/data.js";
 import { today, daysBetween, shortDate } from "../core/dates.js";
 
@@ -85,7 +85,7 @@ export function mount(el, ctx) {
     const blocks = [...new Set(plan.modules.map(m => m.block))].sort((a, b) => a - b);
     body.innerHTML = `
       <section class="card stack uni-progress">
-        <div class="row" style="justify-content:space-between"><b style="font-size:17px">${st.passed} von ${st.total} Modulen bestanden</b>
+        <div class="row" style="justify-content:space-between"><b style="font-size:calc(17px * var(--fs))">${st.passed} von ${st.total} Modulen bestanden</b>
           <span class="muted">${st.avg == null ? "Noch keine Noten" : `Notenschnitt <b class="num" style="color:var(--ink)">${fmtGrade(Math.round(st.avg * 100) / 100)}</b> · aus ${st.gradeN} Note${st.gradeN === 1 ? "" : "n"}, ungewichtet`}</span></div>
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${st.total}" aria-valuenow="${st.passed}"><i style="width:${st.total ? st.passed / st.total * 100 : 0}%"></i></div>
         <div class="legend">${plan.examTypes.map(t => `<span><i style="background:${esc(t.color)}"></i>${esc(t.name)}</span>`).join("")}<span><i style="background:var(--line)"></i>noch offen</span><span><i style="background:var(--ok)"></i>bestanden</span></div>
@@ -156,11 +156,11 @@ export function mount(el, ctx) {
       const handle = e.target.closest(".handle"); if (!handle) return;
       e.preventDefault();
       const item = handle.closest(".exam"), items = [...list.children];
-      const startY = e.clientY, h = item.getBoundingClientRect().height + 8;
+      const z = uiZoom(), startY = e.clientY, h = item.getBoundingClientRect().height / z + 8;
       let from = items.indexOf(item), to = from;
       dragging = true; item.classList.add("dragging"); handle.setPointerCapture(e.pointerId);
       const move = ev => {
-        const dy = ev.clientY - startY;
+        const dy = (ev.clientY - startY) / z;
         item.style.transform = `translateY(${dy}px)`;
         to = Math.max(0, Math.min(items.length - 1, from + Math.round(dy / h)));
         items.forEach((n, k) => {

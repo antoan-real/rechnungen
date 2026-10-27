@@ -7,7 +7,7 @@
 .rf .card { padding: 22px }
 .rf .stack { gap: 16px }
 .rf .btn.primary { background: var(--rf-accent); border-color: var(--rf-accent); color: var(--rf-accent-ink) }
-.rf textarea.input { font-size: 16px; line-height: 1.6 }
+.rf textarea.input { font-size: calc(16px * var(--fs)); line-height: 1.6 }
 .rf .chip[aria-pressed="true"], .rf .seg button[aria-pressed="true"] { background: var(--rf-accent); border-color: var(--rf-accent); color: var(--rf-accent-ink) }
 .rf .switch input:checked + span { background: var(--rf-accent) }
 .rf .switch input:checked + span::after { background: var(--rf-accent-ink) }
@@ -20,21 +20,21 @@
 .rf .uline-tabs button[aria-selected="true"], .rf .more-btn.active { border-bottom-color: var(--rf-accent) }
 .rf .more-menu a[aria-current="page"]::after, .rf .more-menu button[aria-current="true"]::after { background: var(--rf-accent) }
 .rf-cols { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) }
-@media (min-width: 900px) { .rf-cols { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) } }
+@container (min-width: 900px) { .rf-cols { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) } }
 
 /* Perspektiv-Karte */
 .thought { padding: clamp(24px, 5vw, 40px); display: flex; flex-direction: column; gap: 14px }
-.thought .t-cat { font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--muted) }
-.thought h3 { font-weight: 700; font-size: clamp(22px, 4.4vw, 26px); line-height: 1.25; letter-spacing: -.01em; color: var(--ink); margin: 0; text-wrap: balance }
-.thought .t-text { font-size: clamp(18px, 2.4vw, 21px); line-height: 1.5; color: var(--ink); max-width: 60ch; margin: 0; white-space: pre-line; hyphens: manual }
+.thought .t-cat { font-size: calc(12px * var(--fs)); font-weight: 500; letter-spacing: .02em; color: var(--muted) }
+.thought h3 { font-weight: 700; font-size: calc(clamp(22px, 4.4vw, 26px) * var(--fs)); line-height: 1.25; letter-spacing: -.01em; color: var(--ink); margin: 0; text-wrap: balance }
+.thought .t-text { font-size: calc(clamp(18px, 2.4vw, 21px) * var(--fs)); line-height: 1.5; color: var(--ink); max-width: 60ch; margin: 0; white-space: pre-line; hyphens: manual }
 .thought .t-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px }
 .thought.compact { padding: 20px 22px; gap: 8px }
-.thought.compact h3 { font-size: 18px }
-.thought.compact .t-text { font-size: 16px; line-height: 1.55 }
+.thought.compact h3 { font-size: calc(18px * var(--fs)) }
+.thought.compact .t-text { font-size: calc(16px * var(--fs)); line-height: 1.55 }
 .fav { border: 0; background: none; cursor: pointer; color: var(--muted); width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; padding: 0 }
 .fav:hover { background: var(--surface-2) }
 .fav[aria-pressed="true"] { color: var(--rf-accent) }
-.fav-mark { display: inline-flex; align-items: center; gap: 4px; color: var(--rf-accent); font-size: 13px }
+.fav-mark { display: inline-flex; align-items: center; gap: 4px; color: var(--rf-accent); font-size: calc(13px * var(--fs)) }
 .cardlist { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); align-items: start }
 .cardlist .thought { cursor: pointer; text-align: left; color: inherit; font: inherit; width: 100% }
 .cardlist .thought:hover { border-color: var(--muted) }
@@ -45,11 +45,11 @@
 
 /* Check-in */
 .grat { display: flex; gap: 12px; align-items: flex-start }
-.grat b { color: var(--muted); font-size: 16px; line-height: 44px; width: 16px; flex: none; text-align: center; font-weight: 700 }
+.grat b { color: var(--muted); font-size: calc(16px * var(--fs)); line-height: 44px; width: 16px; flex: none; text-align: center; font-weight: 700 }
 .grat textarea { min-height: 44px; overflow: hidden; resize: none }
 .mood { display: flex; gap: 8px; flex-wrap: wrap }
-.mood button { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: 0; cursor: pointer; color: var(--muted); font-size: 12px; min-width: 52px }
-.mood button span { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border); display: grid; place-items: center; font-size: 16px; font-weight: 700; color: var(--ink); background: var(--surface) }
+.mood button { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: 0; cursor: pointer; color: var(--muted); font-size: calc(12px * var(--fs)); min-width: 52px }
+.mood button span { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border); display: grid; place-items: center; font-size: calc(16px * var(--fs)); font-weight: 700; color: var(--ink); background: var(--surface) }
 .mood button[aria-pressed="true"] span { background: var(--rf-accent); border-color: var(--rf-accent); color: var(--rf-accent-ink) }
 .mood button[aria-pressed="true"] { color: var(--ink) }
 .saved-note { min-height: 18px }
@@ -62,34 +62,34 @@
 .timeline li { position: relative }
 .timeline li::before { content: ""; position: absolute; left: -25px; top: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--rf-accent); border: 2px solid var(--surface) }
 .timeline small { color: var(--muted); display: block; margin-bottom: 3px }
-.tl-month { font-size: 12px; font-weight: 500; color: var(--muted); margin: 8px 0 -6px -20px }
+.tl-month { font-size: calc(12px * var(--fs)); font-weight: 500; color: var(--muted); margin: 8px 0 -6px -20px }
 .lookback { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border) }
 .lookback small { color: var(--muted); font-weight: 500 }
 
 /* Menschen */
 .people { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)) }
 .person { text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; color: inherit; font: inherit; width: 100% }
-.person b { font-size: 18px; font-weight: 700 }
+.person b { font-size: calc(18px * var(--fs)); font-weight: 700 }
 .person:hover { border-color: var(--muted) }
 
 /* Lebensrad & Leben in Wochen */
-.radar text { fill: var(--muted); font-size: 11px; font-family: var(--f-ui) }
+.radar text { fill: var(--muted); font-size: calc(11px * var(--fs)); font-family: var(--f-ui) }
 .radar .ring { fill: none; stroke: var(--line); stroke-width: 1 }
 .radar .now { fill: color-mix(in srgb, var(--rf-accent) 16%, transparent); stroke: var(--rf-accent); stroke-width: 2; stroke-linejoin: round }
 .radar .prev { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linejoin: round; stroke-dasharray: 4 3 }
 .radar .dot { fill: var(--rf-accent); stroke: var(--surface); stroke-width: 2 }
 .sliders { display: flex; flex-direction: column; gap: 14px }
 .sliders label { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 4px 10px; align-items: center }
-.sliders label span:first-child { font-size: 14px }
+.sliders label span:first-child { font-size: calc(14px * var(--fs)) }
 .sliders input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--rf-accent); min-height: 32px }
 .sliders b { font-family: var(--f-num); text-align: right }
 .weeks-wrap { overflow-x: auto }
 .weeks-wrap canvas { display: block; max-width: 100% }
-.legend-row { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted) }
+.legend-row { display: flex; gap: 14px; flex-wrap: wrap; font-size: calc(12px * var(--fs)); color: var(--muted) }
 .legend-row i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px }
 .rf .chart .bar.on { fill: var(--rf-accent) }
 
 /* Abschnitte anpassen (Einstellungen) */
 .sec-list li { flex-wrap: wrap; row-gap: 6px }
 .sec-list .name { flex: 1 1 140px; font-weight: 500 }
-.sec-list .seg button { padding: 6px 12px; min-height: 34px; font-size: 13px }
+.sec-list .seg button { padding: 6px 12px; min-height: 34px; font-size: calc(13px * var(--fs)) }

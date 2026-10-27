@@ -68,7 +68,7 @@ export function lineChart(box, { series, unit = "", height = 240, label = "" }) 
     const cross = el("line", { y1: m.t, y2: height - m.b, class: "cross", visibility: "hidden" }, svg);
     const hit = el("rect", { x: m.l, y: 0, width: w - m.l - m.r, height, fill: "transparent" }, svg);
     const move = e => {
-      const r = svg.getBoundingClientRect(), px = e.clientX - r.left;
+      const r = svg.getBoundingClientRect(), z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1, px = (e.clientX - r.left) / z;
       const d = dates.reduce((a, b) => Math.abs(X(b) - px) < Math.abs(X(a) - px) ? b : a);
       cross.setAttribute("x1", X(d)); cross.setAttribute("x2", X(d)); cross.setAttribute("visibility", "visible");
       const rows = series.map(s => { const q = s.points.find(p => p.date === d); return q ? `<div><i style="background:${s.color}"></i>${escH(s.name)}<b>${fmt(q.y)}${unit ? " " + unit : ""}</b></div>` : ""; }).join("");
