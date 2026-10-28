@@ -2,9 +2,9 @@
 // Fortschritt pro Übung und Gesamtfortschritt.
 // Datenmodell:
 //   users/{uid}/workouts/{id}  { name, order, exercises: [{ id, name }], createdAt }
-//   users/{uid}/sessions/{id}  { date, workoutId, workoutName, entries: [{ exId, name, weight, sets, reps }], note, createdAt }
+//   users/{uid}/sessions/{id}  { date, workoutId, workoutName, entries: [{ exId, name, weight }], note, createdAt }
+//   (ältere Einheiten können noch sets/reps enthalten; sie werden nicht mehr erfasst oder angezeigt)
 // Kennzahlen:
-//   Volumen = Gewicht × Sätze × Wiederholungen (fehlende Sätze/Wiederholungen zählen als 1)
 //   Ø Steigerung = mittlere Veränderung des Höchstgewichts je Übung, letzte 4 Wochen gegenüber den 4 Wochen davor
 import { $, $$, esc, openSheet, toast } from "../core/ui.js";
 import { watchCollection, put, merge, remove, newId } from "../core/data.js";
@@ -19,12 +19,11 @@ const TEMPLATES = [
 ];
 const num = v => { const n = parseFloat(String(v ?? "").trim().replace(/\s/g, "").replace(",", ".")); return isFinite(n) ? n : null; };
 const fmt = (n, d = 1) => Number(n).toLocaleString("de-DE", { maximumFractionDigits: d });
-const volume = e => (e.weight || 0) * (e.sets || 1) * (e.reps || 1);
 const weekStart = iso => addDays(iso, -((weekday(iso) + 6) % 7));
 const isoWeekNr = iso => isoWeek(iso).week;
 const dateLabel = iso => parseDay(iso).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" });
 const ago = iso => { const n = daysBetween(iso, today()); return n === 0 ? "heute" : n === 1 ? "gestern" : `vor ${n} Tagen`; };
-const entryText = e => `${fmt(e.weight)} kg${e.sets || e.reps ? ` · ${e.sets || "?"}×${e.reps || "?"}` : ""}`;
+const entryText = e => `${fmt(e.weight)} kg`;
 
 function subscribe(onChange) {
   const st = { workouts: [], sessions: [], ready: { w: false, s: false } };
@@ -40,10 +39,12 @@ function allExercises(st) {
   for (const s of st.sessions) for (const e of s.entries || []) if (!known.has(e.exId)) { known.add(e.exId); list.push({ id: e.exId, name: e.name, workout: "gelöscht" }); }
   return list.map((e, i) => ({ ...e, color: seriesColor(i) }));
 }
-function lastEntry(st, exId, beforeDate, skipId) {
+/** Letzter Wert einer Übung vor einem Datum; gleiche Übung auch in anderen Trainings (gleicher Name) zählt mit */
+function lastEntry(st, exId, beforeDate, skipId, name) {
+  const key = String(name || "").trim().toLowerCase();
   for (const s of st.sessions) {
     if (s.id === skipId || (beforeDate && s.date > beforeDate)) continue;
-    const e = (s.entries || []).find(x => x.exId === exId);
+    const e = (s.entries || []).find(x => x.exId === exId || (key && String(x.name || "").trim().toLowerCase() === key));
     if (e) return { ...e, date: s.date };
   }
   return null;
@@ -52,11 +53,10 @@ function lastEntry(st, exId, beforeDate, skipId) {
 function metrics(st) {
   const t = today(), ws = weekStart(t);
   const weeks = Array.from({ length: 12 }, (_, i) => addDays(ws, -7 * (11 - i)));
-  const volByWeek = Object.fromEntries(weeks.map(w => [w, 0]));
   const countByWeek = Object.fromEntries(weeks.map(w => [w, 0]));
   for (const s of st.sessions) {
     const w = weekStart(s.date);
-    if (w in volByWeek) { volByWeek[w] += (s.entries || []).reduce((a, e) => a + volume(e), 0); countByWeek[w]++; }
+    if (w in countByWeek) countByWeek[w]++;
   }
   const maxIn = (exId, from, to) => Math.max(0, ...st.sessions.filter(s => s.date >= from && s.date <= to).flatMap(s => (s.entries || []).filter(e => e.exId === exId).map(e => e.weight || 0)));
   const changes = [];
@@ -65,8 +65,7 @@ function metrics(st) {
     if (now > 0 && before > 0) changes.push((now - before) / before * 100);
   }
   return {
-    weeks, volByWeek, countByWeek,
-    thisWeek: volByWeek[ws], lastWeek: volByWeek[addDays(ws, -7)],
+    weeks, countByWeek,
     avgChange: changes.length ? changes.reduce((a, b) => a + b, 0) / changes.length : null, changeN: changes.length
   };
 }
@@ -127,16 +126,15 @@ export function mount(el, ctx) {
     const counts = Object.fromEntries(exs.map(e => [e.id, st.sessions.filter(s => (s.entries || []).some(x => x.exId === e.id)).length]));
     let sel; try { sel = JSON.parse(localStorage.getItem("tr-sel") || "null"); } catch (e) { sel = null; }
     sel = (sel || exs.slice().sort((a, b) => counts[b.id] - counts[a.id]).slice(0, 3).map(e => e.id)).filter(id => exs.some(e => e.id === id));
-    const delta = m.lastWeek && m.thisWeek ? (m.thisWeek - m.lastWeek) / m.lastWeek * 100 : null;
+    const last4 = m.weeks.slice(8).reduce((a, w) => a + m.countByWeek[w], 0), prev4 = m.weeks.slice(4, 8).reduce((a, w) => a + m.countByWeek[w], 0);
     body.innerHTML = `<div class="stack">
       <section class="card stack"><h2>Gesamtfortschritt</h2>
         <div class="tiles">
-          <div class="stat"><span>Volumen diese Woche</span><b>${fmt(m.thisWeek, 0)} kg</b><small class="${delta == null ? "" : delta >= 0 ? "up" : "down"}">${delta == null ? (m.lastWeek ? `Vorwoche: ${fmt(m.lastWeek, 0)} kg` : "Vorwoche: keine Daten") : `${delta >= 0 ? "+" : "−"}${fmt(Math.abs(delta))} % zur Vorwoche`}</small></div>
           <div class="stat"><span>Ø Steigerung Höchstgewicht</span><b>${m.avgChange == null ? "–" : (m.avgChange >= 0 ? "+" : "") + fmt(m.avgChange) + " %"}</b><small>${m.avgChange == null ? "braucht Daten aus 8 Wochen" : `letzte 4 Wochen ggü. davor · ${m.changeN} Übung${m.changeN === 1 ? "" : "en"}`}</small></div>
           <div class="stat"><span>Einheiten diese Woche</span><b>${m.countByWeek[m.weeks[11]]}</b><small>Vorwoche: ${m.countByWeek[m.weeks[10]]}</small></div>
+          <div class="stat"><span>Einheiten letzte 4 Wochen</span><b>${last4}</b><small>4 Wochen davor: ${prev4}</small></div>
         </div>
-        <div><h3 style="font-size:calc(14px * var(--fs));margin-bottom:6px">Trainingsvolumen pro Woche (kg)</h3><div id="tr-vol"></div></div>
-        <p class="note">Volumen = Gewicht × Sätze × Wiederholungen. Fehlen Sätze oder Wiederholungen, zählen sie als 1.</p>
+        <div><h3 style="font-size:calc(14px * var(--fs));margin-bottom:6px">Einheiten pro Woche</h3><div id="tr-vol"></div></div>
       </section>
       <section class="card stack"><h2>Fortschritt je Übung</h2>
         <div class="chips selchips" id="tr-sel">${exs.map(e => `<button type="button" class="chip" data-ex="${esc(e.id)}" aria-pressed="${sel.includes(e.id)}"><i style="background:${e.color}"></i>${esc(e.name)}</button>`).join("") || `<span class="muted">Noch keine Übungen.</span>`}</div>
@@ -145,8 +143,8 @@ export function mount(el, ctx) {
         <p class="note">Angezeigt wird das höchste Gewicht pro Einheit.</p>
       </section></div>`;
     cleanups.push(columnChart($("#tr-vol", body), {
-      bars: m.weeks.map(w => ({ label: "KW " + isoWeekNr(w), value: Math.round(m.volByWeek[w]), tip: `KW ${isoWeekNr(w)} (ab ${dateLabel(w)}) · ${m.countByWeek[w]} Einheit${m.countByWeek[w] === 1 ? "" : "en"}` })),
-      unit: "kg", label: "Trainingsvolumen pro Woche"
+      bars: m.weeks.map(w => ({ label: "KW " + isoWeekNr(w), value: m.countByWeek[w], tip: `KW ${isoWeekNr(w)} (ab ${dateLabel(w)})` })),
+      unit: "Einheiten", label: "Einheiten pro Woche"
     }));
     const series = exs.filter(e => sel.includes(e.id)).map(e => {
       const byDate = {};
@@ -170,15 +168,17 @@ export function mount(el, ctx) {
     body.innerHTML = `<div class="stack">
       <form class="card row" id="wk-add" style="flex-wrap:nowrap"><input class="input" type="text" id="wk-name" placeholder="Neues Training, z. B. Oberkörper" aria-label="Name des Trainings"><button type="submit" class="btn primary">Anlegen</button></form>
       ${st.workouts.map((w, i) => `<section class="card wk" data-id="${esc(w.id)}">
-        <div class="row" style="flex-wrap:nowrap"><input class="input" type="text" value="${esc(w.name)}" data-f="wname" aria-label="Name des Trainings" style="font-weight:600">
-          <button type="button" class="btn icon small" data-wmv="-1" ${i === 0 ? "disabled" : ""} aria-label="Training nach oben">${icon("arrow-up")}</button>
-          <button type="button" class="btn icon small" data-wmv="1" ${i === st.workouts.length - 1 ? "disabled" : ""} aria-label="Training nach unten">${icon("arrow-down")}</button>
-          <button type="button" class="btn icon small danger" data-wdel aria-label="Training löschen">${icon("x")}</button></div>
-        ${(w.exercises || []).map((x, j) => `<div class="wk-ex" data-ex="${esc(x.id)}"><input class="input" type="text" value="${esc(x.name)}" data-f="exname" aria-label="Übung">
+        <div class="wk-head"><div class="wk-title"><span class="wk-label">Training</span>
+          <input type="text" value="${esc(w.name)}" data-f="wname" aria-label="Name des Trainings"></div>
+          <button type="button" class="btn icon small ghost" data-wmv="-1" ${i === 0 ? "disabled" : ""} aria-label="Training nach oben">${icon("arrow-up")}</button>
+          <button type="button" class="btn icon small ghost" data-wmv="1" ${i === st.workouts.length - 1 ? "disabled" : ""} aria-label="Training nach unten">${icon("arrow-down")}</button>
+          <button type="button" class="btn small ghost danger" data-wdel aria-label="Training ${esc(w.name)} löschen">Löschen</button></div>
+        <h2 class="wk-sub">${(w.exercises || []).length} Übung${(w.exercises || []).length === 1 ? "" : "en"}</h2>
+        ${(w.exercises || []).map((x, j) => `<div class="wk-ex" data-ex="${esc(x.id)}"><span class="wk-nr">${j + 1}</span><input class="input" type="text" value="${esc(x.name)}" data-f="exname" aria-label="Übung">
           <button type="button" class="btn icon small" data-emv="-1" ${j === 0 ? "disabled" : ""} aria-label="Übung nach oben">${icon("arrow-up")}</button>
           <button type="button" class="btn icon small" data-emv="1" ${j === w.exercises.length - 1 ? "disabled" : ""} aria-label="Übung nach unten">${icon("arrow-down")}</button>
           <button type="button" class="btn icon small danger" data-edel aria-label="Übung löschen">${icon("x")}</button></div>`).join("")}
-        <div class="wk-ex"><input class="input" type="text" data-f="newex" placeholder="+ Übung hinzufügen" aria-label="Neue Übung"><button type="button" class="btn small" data-eadd>Hinzufügen</button></div>
+        <div class="wk-ex wk-new"><span class="wk-nr">${icon("plus", { size: 16 })}</span><input class="input" type="text" data-f="newex" placeholder="Übung hinzufügen" aria-label="Neue Übung"><button type="button" class="btn small" data-eadd>Hinzufügen</button></div>
       </section>`).join("")}</div>`;
     const root = body.firstElementChild;
     const W = id => st.workouts.find(w => w.id === id);
@@ -241,7 +241,7 @@ function openSession(st, session) {
   const d = {
     workoutId: session?.workoutId || (suggest?.id !== lastWk ? suggest?.id : st.workouts[0]?.id) || st.workouts[0]?.id,
     date: session?.date || today(), note: session?.note || "",
-    values: Object.fromEntries((session?.entries || []).map(e => [e.exId, { weight: e.weight, sets: e.sets, reps: e.reps, name: e.name }]))
+    values: Object.fromEntries((session?.entries || []).map(e => [e.exId, { weight: e.weight, name: e.name }]))
   };
   openSheet((s, close) => {
     const exercisesFor = () => {
@@ -256,23 +256,16 @@ function openSession(st, session) {
         <div class="chips" id="ss-wk">${st.workouts.map(w => `<button type="button" class="chip" data-w="${esc(w.id)}" aria-pressed="${w.id === d.workoutId}">${esc(w.name)}</button>`).join("")}</div>
         <label class="field" style="max-width:180px"><span>Datum</span><input class="input" type="date" id="ss-date" value="${esc(d.date)}"></label>
         <div id="ss-ex">${exercisesFor().map(x => {
-          const v = d.values[x.id] || {}, last = lastEntry(st, x.id, d.date, session?.id);
+          const v = d.values[x.id] || {}, last = lastEntry(st, x.id, d.date, session?.id, x.name);
           return `<div class="ex-row" data-ex="${esc(x.id)}" data-name="${esc(x.name)}">
-            <div class="ex-name">${esc(x.name)}${last ? `<small>zuletzt ${entryText(last)}</small><button type="button" class="linkbtn small" data-copy>wie letztes Mal</button>` : ""}</div>
-            <label class="field"><span>kg</span><input class="input num" type="text" inputmode="decimal" data-f="weight" value="${valStr(v.weight)}" placeholder="${last ? valStr(last.weight) : ""}"></label>
-            <label class="field"><span>Sätze</span><input class="input num" type="text" inputmode="numeric" data-f="sets" value="${valStr(v.sets)}" placeholder="${last?.sets ?? ""}"></label>
-            <label class="field"><span>Wdh.</span><input class="input num" type="text" inputmode="numeric" data-f="reps" value="${valStr(v.reps)}" placeholder="${last?.reps ?? ""}"></label></div>`;
+            <div class="ex-name">${esc(x.name)}${last ? `<small>zuletzt ${esc(dateLabel(last.date))}</small>` : `<small>noch kein Wert</small>`}</div>
+            <label class="field ex-kg"><input class="input num" type="text" inputmode="decimal" data-f="weight" value="${valStr(v.weight)}" placeholder="${last ? valStr(last.weight) : "–"}" aria-label="${esc(x.name)} in kg${last ? `, letztes Mal ${valStr(last.weight)}` : ""}"><span>kg</span></label></div>`;
         }).join("") || `<p class="muted">Dieses Training hat noch keine Übungen. Füge sie unter „Trainings“ hinzu.</p>`}</div>
         <label class="field"><span>Notiz (optional)</span><textarea class="input" id="ss-note" rows="2">${esc(d.note)}</textarea></label>
         <p class="err" id="ss-err" hidden></p>
         <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" data-del style="margin-right:auto">Löschen</button>`}<button type="button" class="btn" data-x>Abbrechen</button><button type="button" class="btn primary" data-save>Speichern</button></div>`;
       $("#ss-wk", s).onclick = e => { const b = e.target.closest("[data-w]"); if (!b) return; collect(); d.workoutId = b.dataset.w; draw(); };
       $("#ss-date", s).onchange = e => { collect(); d.date = e.target.value || today(); draw(); };
-      $("#ss-ex", s).onclick = e => {
-        const b = e.target.closest("[data-copy]"); if (!b) return;
-        const row = b.closest(".ex-row"), last = lastEntry(st, row.dataset.ex, d.date, session?.id);
-        ["weight", "sets", "reps"].forEach(f => { const i = row.querySelector(`[data-f=${f}]`); if (last?.[f] != null) i.value = valStr(last[f]); });
-      };
       $("[data-x]", s).onclick = close;
       if (!isNew) $("[data-del]", s).onclick = () => { close(); remove("sessions", session.id).then(() => toast("Einheit gelöscht.")); };
       $("[data-save]", s).onclick = save;
@@ -280,8 +273,8 @@ function openSession(st, session) {
     function collect() {
       $$("#ss-ex .ex-row", s).forEach(r => {
         const v = { name: r.dataset.name };
-        ["weight", "sets", "reps"].forEach(f => { v[f] = r.querySelector(`[data-f=${f}]`).value.trim(); });
-        if (v.weight || v.sets || v.reps) d.values[r.dataset.ex] = v; else delete d.values[r.dataset.ex];
+        v.weight = r.querySelector("[data-f=weight]").value.trim();
+        if (v.weight) d.values[r.dataset.ex] = v; else delete d.values[r.dataset.ex];
       });
       d.note = $("#ss-note", s)?.value ?? d.note;
     }
@@ -291,9 +284,9 @@ function openSession(st, session) {
       const entries = [];
       for (const x of exercisesFor()) {
         const v = d.values[x.id]; if (!v) continue;
-        const weight = num(v.weight), sets = num(v.sets), reps = num(v.reps);
+        const weight = num(v.weight);
         if (weight == null) { err(`Bitte bei „${x.name}“ ein Gewicht eintragen (0 für Körpergewicht).`); return; }
-        entries.push({ exId: x.id, name: x.name, weight, sets: sets ? Math.round(sets) : null, reps: reps ? Math.round(reps) : null });
+        entries.push({ exId: x.id, name: x.name, weight });
       }
       if (!entries.length) { err("Bitte mindestens eine Übung ausfüllen."); return; }
       const w = st.workouts.find(x => x.id === d.workoutId);
