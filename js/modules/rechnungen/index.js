@@ -202,12 +202,13 @@ export function mount(root, ctx) {
     logout: "Изход", loginSub: "Моля, влезте", email: "Имейл", password: "Парола", login: "Вход", forgot: "Забравена парола",
     loginBad: "Грешен имейл или парола.", loginMany: "Твърде много опити. Изчакайте малко и опитайте отново.", loginNet: "Няма връзка с интернет.",
     resetSent: "Изпратен е имейл за нова парола до {email}.", needEmail: "Моля, въведете имейл.",
-    saveFail: "Запазването не успя: {msg}", posLabel: "Позиция", moveUp: "Нагоре", moveDown: "Надолу", remove: "Премахни", edit: "Редактирай"
+    saveFail: "Запазването не успя: {msg}", posLabel: "Позиция", moveUp: "Нагоре", moveDown: "Надолу", remove: "Премахни", edit: "Редактирай", qtyAdd: "Добави към количеството", qtySub: "Извади от количеството", qtyNow: "сега", apply: "Приложи"
   };
   const DE = {
     editInvoice: "Rechnung bearbeiten", newInvoice: "Neue Rechnung",
     dedLabel: "Bezeichnung (z. B. Zwischenrechnung 1)", dedRef: "Bezug (z. B. Rechnung Nr.07/2025)", dedAmount: "Betrag €",
     open: "Öffnen", copy: "Kopieren", del: "Löschen", custNew: "Neuer Kunde", custEdit: "Kunde bearbeiten",
+    qtyAdd: "Zur Menge addieren", qtySub: "Von der Menge abziehen", qtyNow: "aktuell", apply: "Übernehmen",
     sumNet: "Gesamt Netto", sumVat: "MwSt.", sumGross: "Gesamtbetrag", sumDed: "Abzüglich gezahlt", sumDue: "Forderungsbetrag",
     noInvoices: "Noch keine Rechnungen. Lege die erste im Tab „Rechnung bearbeiten“ an.", noCustomers: "Noch keine Kunden. Lege rechts den ersten an.",
     noMatch: "Keine passenden Rechnungen.", pickCustomer: "— Kunde wählen —", newCustomerOpt: "+ Neuer Kunde …",
@@ -370,7 +371,8 @@ export function mount(root, ctx) {
     const total = r2(parseNum(it.qty) * parseNum(it.price));
     return `<div class="irow" data-i="${i}">
       <span class="pos">${i + 1}</span>
-      <input type="text" class="num f-qty" inputmode="decimal" data-f="qty" id="it-qty-${i}" value="${esc(it.qty)}" aria-label="${esc(t("qty"))}">
+      <span class="qcalc f-qty"><input type="text" class="num" inputmode="decimal" data-f="qty" id="it-qty-${i}" value="${esc(it.qty)}" aria-label="${esc(t("qty"))}">
+        <span class="qbtns"><button type="button" data-op="qadd" tabindex="-1" aria-label="${esc(t("qtyAdd"))}" title="${esc(t("qtyAdd"))}">${icon("plus", { size: 13, stroke: 2.5 })}</button><button type="button" data-op="qsub" tabindex="-1" aria-label="${esc(t("qtySub"))}" title="${esc(t("qtySub"))}">${icon("minus", { size: 13, stroke: 2.5 })}</button></span></span>
       <span class="combo f-unit"><input type="text" data-f="unit" id="it-unit-${i}" value="${esc(it.unit)}" autocomplete="off" aria-label="${esc(t("unit"))}"><button type="button" data-op="units" tabindex="-1" aria-label="${esc(t("unit"))}" aria-haspopup="listbox">${icon("chevron-down", { size: 16 })}</button></span>
       <textarea class="f-text" data-f="text" id="it-text-${i}" rows="1" aria-label="${esc(t("text"))}">${esc(it.text)}</textarea>
       <input type="text" class="num f-price" inputmode="decimal" data-f="price" id="it-price-${i}" value="${esc(it.price)}" aria-label="${esc(t("price"))}">
@@ -482,14 +484,14 @@ export function mount(root, ctx) {
     doc.setFont("times", "normal"); doc.setFontSize(10);
     y += 7;
     const extra = String(inv.extra || "").trim();
-    if (extra) { extra.split("\n").forEach(line => { doc.text(line, L, y); y += 5.5; }); y += 1; }
+    if (extra) { doc.setFont("times", "italic"); extra.split("\n").forEach(line => { doc.text(line, L, y); y += 5.5; }); doc.setFont("times", "normal"); y += 1; }
     if (inv.bv) { doc.text("BV: " + inv.bv, L, y); y += 4.4; }
     if (inv.period) { doc.text("Ausführungszeit: " + inv.period, L, y); y += 4.4; }
 
     const body = inv.items.map((it, i) => [`${i + 1}.`, qtyWithUnit(it), it.text || "", fmtMoney(parseNum(it.price)), fmtMoney(c.lines[i])]);
     const sumRow = (label, val, extraStyle = {}) => [
-      { content: label, colSpan: 4, styles: { halign: "left", fontSize: 9, ...extraStyle } },
-      { content: val, styles: { halign: "right", fontSize: 9, ...extraStyle } }];
+      { content: label, colSpan: 4, styles: { halign: "left", fontSize: 9, lineWidth: { top: 0.2, bottom: 0.2, left: 0.2, right: 0 }, ...extraStyle } },
+      { content: val, styles: { halign: "right", fontSize: 9, lineWidth: { top: 0.2, bottom: 0.2, left: 0, right: 0.2 }, ...extraStyle } }];
     body.push(sumRow("Gesamt Netto", fmtMoney(c.net)));
     if (c.vatMode) body.push(sumRow(`zzgl. ${fmtQty(String(c.rate))} % MwSt.`, fmtMoney(c.vat)));
     body.push(sumRow("Gesamtbetrag", fmtMoney(c.gross), { fontStyle: "bold" }));
@@ -537,7 +539,7 @@ export function mount(root, ctx) {
     const para = (children, o = {}) => new D.Paragraph({ children: Array.isArray(children) ? children : [children], alignment: o.align, spacing: { after: o.after ?? 0, before: o.before ?? 0 }, tabStops: o.tabs });
     const lines = (text, o) => String(text || "").split("\n").map(s => para(run(s, o), { align: o?.align }));
     const cell = (content, o = {}) => new D.TableCell({
-      width: { size: o.w, type: D.WidthType.DXA }, columnSpan: o.span,
+      width: { size: o.w, type: D.WidthType.DXA }, columnSpan: o.span, borders: o.borders,
       margins: { top: 40, bottom: 40, left: 80, right: 80 },
       children: lines(content, { size: o.size || 20, bold: o.bold, align: o.align })
     });
@@ -548,7 +550,8 @@ export function mount(root, ctx) {
     const rows = [head, ...inv.items.map((it, i) => new D.TableRow({ cantSplit: true, children: [
       cell(`${i + 1}.`, { w: cols[0] }), cell(qtyWithUnit(it), { w: cols[1], size: 21 }), cell(it.text || "", { w: cols[2], size: 18, align: A.CENTER }),
       cell(fmtMoney(parseNum(it.price)), { w: cols[3], align: A.RIGHT }), cell(fmtMoney(c.lines[i]), { w: cols[4], align: A.RIGHT })] }))];
-    const sum = (label, val, bold) => new D.TableRow({ children: [cell(label, { w: W - cols[4], span: 4, size: 18, bold }), cell(val, { w: cols[4], size: 18, bold, align: A.RIGHT })] });
+    const none = { style: D.BorderStyle.NONE, size: 0, color: "FFFFFF" };
+    const sum = (label, val, bold) => new D.TableRow({ children: [cell(label, { w: W - cols[4], span: 4, size: 18, bold, borders: { right: none } }), cell(val, { w: cols[4], size: 18, bold, align: A.RIGHT, borders: { left: none } })] });
     rows.push(sum("Gesamt Netto", fmtMoney(c.net)));
     if (c.vatMode) rows.push(sum(`zzgl. ${fmtQty(String(c.rate))} % MwSt.`, fmtMoney(c.vat)));
     rows.push(sum("Gesamtbetrag", fmtMoney(c.gross), true));
@@ -567,7 +570,7 @@ export function mount(root, ctx) {
       para(run(`Rechnung Nr. ${nrLabel(inv)}`, { bold: true, size: 26 }), { after: 160 })
     ];
     const extra = String(inv.extra || "").trim();
-    if (extra) extra.split("\n").forEach(s => kids.push(para(run(s), { after: 100 })));
+    if (extra) extra.split("\n").forEach(s => kids.push(para(run(s, { italic: true }), { after: 100 })));
     if (inv.bv) kids.push(para(run("BV: " + inv.bv)));
     if (inv.period) kids.push(para(run("Ausführungszeit: " + inv.period)));
     kids.push(para(run(""), { after: 40 }), table, para(run(""), { after: 300 }));
@@ -743,12 +746,44 @@ export function mount(root, ctx) {
     const b = e.target.closest("button[data-op]"); if (!b) return;
     const i = +b.closest(".irow").dataset.i, it = cur.items;
     if (b.dataset.op === "units") { openUnitMenu(b, i); return; }
+    if (b.dataset.op === "qadd" || b.dataset.op === "qsub") { openQtyCalc(b, i, b.dataset.op === "qadd" ? 1 : -1); return; }
     if (b.dataset.op === "up" && i > 0) [it[i - 1], it[i]] = [it[i], it[i - 1]];
     else if (b.dataset.op === "down" && i < it.length - 1) [it[i + 1], it[i]] = [it[i], it[i + 1]];
     else if (b.dataset.op === "rm") { it.splice(i, 1); if (!it.length) it.push({ qty: "", unit: "m²", text: "", price: "" }); }
     else return;
     renderItems(); changed();
   });
+  /* Menge ergänzen: + oder − anklicken, Wert eingeben, wird zur vorhandenen Menge gerechnet */
+  const decimals = v => { const m = String(v ?? "").trim().match(/[.,](\d+)$/); return m ? m[1].length : 0; };
+  function openQtyCalc(btn, i, sign) {
+    closeUnitMenu();
+    const box = btn.closest(".qcalc"), input = box.querySelector("input"), z = uiZoom(), rv = box.getBoundingClientRect();
+    const r = { left: rv.left / z, top: rv.top / z, bottom: rv.bottom / z };
+    const m = document.createElement("form");
+    m.className = "umenu qmenu"; m.dataset.i = i;
+    m.innerHTML = `<label><span>${esc(t(sign > 0 ? "qtyAdd" : "qtySub"))} · ${esc(t("qtyNow"))} ${esc(fmtQty(cur.items[i].qty) || "0")}</span>
+      <span class="qline"><b>${sign > 0 ? "+" : "−"}</b><input type="text" inputmode="decimal" class="num" placeholder="123,33" aria-label="${esc(t(sign > 0 ? "qtyAdd" : "qtySub"))}"></span></label>
+      <div class="qact"><button type="button" data-x>${esc(t("cancel"))}</button><button type="submit" class="ok">${esc(t("apply"))}</button></div>`;
+    document.body.appendChild(m);
+    m.style.left = Math.max(8, Math.min(r.left, window.innerWidth / z - m.offsetWidth - 8)) + "px";
+    const below = r.bottom + 4 + m.offsetHeight <= window.innerHeight / z;
+    m.style.top = (below ? r.bottom + 4 : r.top - 4 - m.offsetHeight) + "px";
+    const field = m.querySelector("input");
+    field.focus();
+    m.querySelector("[data-x]").onclick = () => { closeUnitMenu(); input.focus(); };
+    m.onkeydown = e => { if (e.key === "Escape") { closeUnitMenu(); input.focus(); } };
+    m.onsubmit = e => {
+      e.preventDefault();
+      let v = field.value.trim(); const neg = /^[-−]/.test(v); v = v.replace(/^[+\-−]\s*/, ""); // „+12“ oder „-12“ direkt erlaubt
+      const add = parseNum(v) * sign * (neg ? -1 : 1);
+      if (!field.value.trim() || !isFinite(add) || add === 0) { closeUnitMenu(); input.focus(); return; }
+      const d = Math.min(3, Math.max(decimals(cur.items[i].qty), decimals(v), parseNum(cur.items[i].qty) % 1 || add % 1 ? 2 : 0));
+      const next = Math.round((parseNum(cur.items[i].qty) + add) * 1000) / 1000;
+      cur.items[i].qty = next.toLocaleString("de-DE", { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: false });
+      input.value = cur.items[i].qty;
+      closeUnitMenu(); updateRowTotals(); changed(); input.focus();
+    };
+  }
   const UNITS = ["m", "m²", "Stück", "Stunden"];
   function closeUnitMenu() { document.querySelectorAll(".umenu").forEach(n => n.remove()); }
   function openUnitMenu(btn, i) {
@@ -777,7 +812,7 @@ export function mount(root, ctx) {
     });
     (m.querySelector('[aria-selected="true"]') || m.querySelector("button")).focus();
   }
-  on(document, "mousedown", e => { if (!e.target.closest(".umenu, .combo button")) closeUnitMenu(); });
+  on(document, "mousedown", e => { if (!e.target.closest(".umenu, .combo button, .qbtns button")) closeUnitMenu(); });
   on(window, "scroll", closeUnitMenu, true);
   on(window, "resize", closeUnitMenu);
   $("#items").addEventListener("keydown", e => {

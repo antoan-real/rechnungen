@@ -52,7 +52,7 @@
 .rb .dirty { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); display: inline-block; margin-left: 6px; vertical-align: middle }
 .rb /* Positionen */
 .items { display: flex; flex-direction: column; gap: 6px }
-.rb .irow { display: grid; grid-template-columns: 30px 92px 96px minmax(0, 1fr) 96px 112px 116px; gap: 6px; align-items: start }
+.rb .irow { display: grid; grid-template-columns: 30px 118px 96px minmax(0, 1fr) 96px 112px 116px; gap: 6px; align-items: start }
 .rb .irow.head { font-size: calc(12px * var(--fs)); color: var(--muted); font-weight: 500; padding-bottom: 2px; border-bottom: 1px solid var(--line) }
 .rb .irow .pos { font-family: var(--f-num); color: var(--muted); padding-top: 10px; text-align: right }
 .rb .irow .tot { font-family: var(--f-num); font-variant-numeric: tabular-nums; text-align: right; padding: 10px 2px 0 0; font-weight: 700 }
@@ -94,7 +94,7 @@
 .rb .sheet .meta { margin-left: auto; width: 60mm; display: grid; grid-template-columns: auto 1fr; gap: 0 6mm; font-size: 9pt; margin-top: 3mm }
 .rb .sheet .meta span:nth-child(even) { text-align: right }
 .rb .sheet .nr { font-weight: bold; font-size: 13pt; margin-top: 6mm }
-.rb .sheet .extra { white-space: pre-line; margin-top: 3mm }
+.rb .sheet .extra { white-space: pre-line; margin-top: 3mm; font-style: italic }
 .rb .sheet .bv { margin-top: 3mm }
 .rb .sheet table { width: 100%; border-collapse: collapse; margin-top: 1.5mm; table-layout: fixed }
 .rb .sheet td, .rb .sheet th { border: .6px solid #000; padding: 1mm 1.5mm; vertical-align: top; font-weight: normal }
@@ -104,6 +104,9 @@
 .rb .sheet td.r { text-align: right }
 .rb .sheet td.q { font-size: 11pt }
 .rb .sheet tr.sum td { font-size: 9pt }
+/* Summenzeilen: keine senkrechte Linie zwischen Bezeichnung und Betrag */
+.rb .sheet tr.sum td:first-child:not([colspan="5"]) { border-right: 0 }
+.rb .sheet tr.sum td.r { border-left: 0 }
 .rb .sheet tr.sum.b td { font-weight: bold }
 .rb .sheet .ded { margin-top: 8mm; display: grid; grid-template-columns: 34mm 1fr auto auto; gap: .5mm 3mm; font-size: 10pt }
 .rb .sheet .ded i { text-align: right }
@@ -132,3 +135,20 @@
   .rb .toolbar::-webkit-scrollbar { display: none }
   .rb header.top .brand { display: none }
 }
+
+/* Menge mit kleinem + / − zum Dazurechnen */
+.rb .qcalc { position: relative; display: block; min-width: 0 }
+.rb .qcalc input { padding-right: 30px }
+.rb .qbtns { position: absolute; top: 1px; right: 1px; bottom: 1px; width: 26px; display: flex; flex-direction: column; border-left: 1px solid var(--border) }
+.rb .qbtns button { flex: 1; border: 0; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; padding: 0 }
+.rb .qbtns button:first-child { border-radius: 0 11px 0 0; border-bottom: 1px solid var(--border) }
+.rb .qbtns button:last-child { border-radius: 0 0 11px 0 }
+.rb .qbtns button:hover { color: var(--ink); background: var(--surface) }
+.qmenu { padding: 12px; gap: 10px; min-width: 230px }
+.qmenu label { display: flex; flex-direction: column; gap: 6px; font-size: calc(12px * var(--fs)); color: var(--muted) }
+.qmenu .qline { display: flex; align-items: center; gap: 8px }
+.qmenu .qline b { font-size: calc(20px * var(--fs)); color: var(--ink); width: 14px; text-align: center }
+.qmenu input { flex: 1; min-width: 0; border: 1px solid var(--border); background: var(--surface-2); border-radius: 12px; padding: 8px 11px; min-height: 42px; font-size: calc(16px * var(--fs)); text-align: right; color: var(--ink) }
+.qmenu .qact { display: flex; gap: 6px; justify-content: flex-end }
+.qmenu .qact button { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 14px; min-height: 38px; cursor: pointer; color: var(--ink); font-weight: 500 }
+.qmenu .qact button.ok { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); font-weight: 700 }
