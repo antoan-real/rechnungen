@@ -10,6 +10,7 @@ export const MODULES = [
   { id: "reflektor", title: "Lebensreflektor", wide: true, load: () => import("./reflektor/index.js") },
   { id: "news", title: "News", load: () => import("./news.js") },
   { id: "video", title: "Video zu Text", load: () => import("./video.js") },
+  { id: "pdf", title: "PDF komprimieren", load: () => import("./pdf.js") },
   { id: "englisch", title: "Englisch", soon: "Phase 5", text: "Englisch lernen." },
   { id: "trading", title: "Trading", soon: "Phase 5", text: "Trading." }
 ];

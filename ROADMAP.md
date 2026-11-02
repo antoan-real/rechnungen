@@ -46,6 +46,10 @@ Jeder Bereich ist ein eigenes Modul unter `js/modules/`, Daten liegen pro Nutzer
 - Lebensreflektor ruhiger (größere Kartenschrift, gedämpfter Akzent); Abschnitte frei auf Leiste / „Mehr“ / aus
 - Einstellungen: Anzeigegröße (wie Strg + Mausrad, 60–150 %) und Schriftgröße (80–140 %), pro Gerät gespeichert
 
+## PDF komprimieren ✅
+- Mehrere PDFs zusammenfügen (pdf-lib) und komprimieren (Ghostscript als WebAssembly, AGPL-3.0) – komplett im Browser,
+  nichts wird hochgeladen oder gespeichert; Stufen Nicht / Leicht (150 dpi) / Stark (110 dpi) / Maximal (72 dpi)
+
 ## Phase 5
 - Englisch lernen
 - Trading

@@ -425,3 +425,32 @@ body:has(.overlay) #toast-root { bottom: auto; top: calc(16px + env(safe-area-in
 .t-more li { border-left: 3px solid var(--line); padding-left: 10px; display: flex; flex-direction: column; gap: 3px }
 .t-more a { color: var(--ink); font-weight: 600; text-decoration: none }
 .t-more a:hover { color: var(--accent); text-decoration: underline }
+
+/* ---------- PDF komprimieren ---------- */
+.pdf-grid { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); align-items: start }
+@container (min-width: 860px) { .pdf-grid { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) } }
+.pdf-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 150px; border: 2px dashed var(--border); cursor: pointer; text-align: center }
+.pdf-drop:hover, .pdf-drop:focus-visible, .pdf-drop.over { border-color: var(--sel); background: var(--accent-soft) }
+.pdf-drop b { font-size: calc(16px * var(--fs)) }
+.pdf-drop-ic { width: 52px; height: 52px; border-radius: 50%; background: var(--primary); color: var(--primary-ink); display: grid; place-items: center; margin-bottom: 6px }
+.pdf-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px }
+.pdf-item { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 18px; padding: 8px; background: var(--surface) }
+.pdf-item.bad { border-color: var(--danger); background: var(--danger-soft) }
+.pdf-item.bad small { color: var(--danger) }
+.pdf-item.dragging { box-shadow: var(--shadow-pop); position: relative; z-index: 5 }
+.pdf-item .handle { touch-action: none; cursor: grab; border: 0; background: none; color: var(--muted); padding: 0; width: 28px; height: 44px; display: grid; place-items: center; flex: none }
+.pdf-thumb { width: 40px; height: 54px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; flex: none; display: grid; place-items: center }
+.pdf-thumb canvas { width: 100%; height: auto; display: block; background: #fff }
+.pdf-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-left: 4px }
+.pdf-main b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.pdf-main small { color: var(--muted); font-size: calc(12px * var(--fs)) }
+@container (max-width: 420px) { .pdf-item [data-mv] { display: none } }
+.pdf-progress { display: flex; flex-direction: column; gap: 8px; font-size: calc(14px * var(--fs)) }
+.pdf-bar { height: 8px; border-radius: 999px; background: var(--chart-off); overflow: hidden }
+.pdf-bar i { display: block; height: 100%; width: 0; background: var(--chart-on); border-radius: 999px; transition: width .2s }
+.pdf-bar i.indet { width: 35% !important; animation: indet 1.1s ease-in-out infinite alternate }
+@keyframes indet { from { transform: translateX(-20%) } to { transform: translateX(210%) } }
+.pdf-sizes { display: flex; align-items: center; gap: 12px; font-size: calc(26px * var(--fs)); font-weight: 700; letter-spacing: -.02em; flex-wrap: wrap }
+.pdf-sizes span { color: var(--muted); font-weight: 500 }
+.tag-ok { color: var(--ok) }
+.pdf-busy .pdf-item button, .pdf-busy .pdf-drop { pointer-events: none; opacity: .6 }

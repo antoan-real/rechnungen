@@ -18,6 +18,7 @@ js/app.js                Anmeldung, Navigation mit „Mehr“-Menü, Router (#be
 js/firebase.js           Firebase-Konfiguration
 js/core/                 Datenzugriff, Einstellungen, Erinnerungen, Datums- und UI-Helfer, Linien-Icons
 js/modules/registry.js   Liste aller Bereiche und Startseiten-Kacheln
+vendor/ghostpdl-1.1.0/   Ghostscript als WebAssembly für „PDF komprimieren“ (AGPL-3.0, unverändert, siehe README dort)
 js/modules/*.js          ein Bereich pro Datei bzw. Ordner
 sw.js                    Service Worker (Offline-Start)
 firestore.rules          Sicherheitsregeln für Firestore
