@@ -1,5 +1,5 @@
 // Service Worker: App offline startbar machen. Bei jeder Änderung an App-Dateien VERSION erhöhen.
-const VERSION = "v12";
+const VERSION = "v13";
 const SHELL = `daily-shell-${VERSION}`;
 const RUNTIME = "daily-runtime";
 const FILES = [
@@ -8,7 +8,7 @@ const FILES = [
   "js/modules/registry.js", "js/modules/dashboard.js", "js/modules/einstellungen.js", "js/modules/gewohnheiten.js", "js/modules/habits-core.js", "js/modules/training.js", "js/modules/uni.js",
   "js/modules/reflect-core.js",
   "js/modules/reflektor/index.js", "js/modules/reflektor/shared.js", "js/modules/reflektor/views.js", "js/modules/reflektor/views2.js", "js/modules/reflektor/cards-data.js", "js/modules/reflektor/reflektor.css", "js/modules/rezepte.js", "js/modules/rezepte-core.js", "js/modules/rezepte-data.js",
-  "js/modules/news.js", "js/modules/news-core.js", "js/modules/video.js", "js/modules/pdf.js", "js/modules/pdf-worker.js",
+  "js/modules/news.js", "js/modules/news-core.js", "js/modules/video.js", "js/modules/pdf.js", "js/modules/pdf-worker.js", "js/modules/mehr.js",
   "js/modules/rechnungen/index.js", "js/modules/rechnungen/rechnungen.css",
   "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"
 ];

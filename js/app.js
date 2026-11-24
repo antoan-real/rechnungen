@@ -2,7 +2,7 @@
 import { auth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from "./firebase.js";
 import { setUser, onDataError } from "./core/data.js";
 import { startSettings, getSettings, onSettings, saveSettings, navLayout, applyTheme, effectiveTheme, onSystemTheme } from "./core/settings.js";
-import { icon } from "./core/icons.js";
+import { icon, moduleIcon } from "./core/icons.js";
 import { $, esc, toast, openSheet, confirmBox } from "./core/ui.js";
 import { moduleById } from "./modules/registry.js";
 import { startReminders } from "./core/reminders.js";
@@ -72,67 +72,49 @@ function renderLogin() {
   $("#l-email").focus();
 }
 
-/* ---------- Kopfbereich: Datum, „Hey Name“, Hell/Dunkel, Avatar ---------- */
-const displayName = () => getSettings().name || (user?.email || "").split("@")[0];
-function renderHead() {
-  const d = new Date();
-  const wd = d.toLocaleDateString("de-DE", { weekday: "short" }).replace(".", "");
-  const mon = d.toLocaleDateString("de-DE", { month: "short" }).replace(".", "");
-  $("#hd-date").textContent = `${wd} · ${d.getDate()}. ${mon}`;
-  const name = displayName();
-  $("#hd-name").textContent = name ? `Hey ${name}` : "Hey";
-  $("#avatar").textContent = (name || "?").trim().charAt(0).toUpperCase();
-  $("#avatar").setAttribute("aria-label", "Einstellungen" + (name ? ` (${name})` : ""));
+/* ---------- Hell/Dunkel-Umschalter (oben rechts bzw. in der Seitenleiste) ---------- */
+function renderThemeBtns() {
   const dark = effectiveTheme() === "dark";
-  $("#theme-btn").innerHTML = icon(dark ? "sun" : "moon", { size: 20 });
-  $("#theme-btn").setAttribute("aria-label", dark ? "Helles Design" : "Dunkles Design");
-  $("#theme-btn").title = dark ? "Helles Design" : "Dunkles Design";
+  document.querySelectorAll(".theme-btn").forEach(b => {
+    b.innerHTML = icon(dark ? "sun" : "moon", { size: 19 });
+    b.setAttribute("aria-label", dark ? "Helles Design" : "Dunkles Design");
+    b.title = dark ? "Helles Design" : "Dunkles Design";
+  });
 }
-$("#theme-btn").onclick = () => {
+document.querySelectorAll(".theme-btn").forEach(b => b.onclick = () => {
   const next = effectiveTheme() === "dark" ? "light" : "dark";
   applyTheme(next);
   if (user) saveSettings({ theme: next }).catch(() => {});
-};
-document.addEventListener("db-theme", () => { if (user) renderHead(); });
-onSystemTheme(() => { if (user) renderHead(); });
-setInterval(() => { if (user) renderHead(); }, 60000);
+});
+document.addEventListener("db-theme", renderThemeBtns);
+onSystemTheme(renderThemeBtns);
 
-/* ---------- Navigation ---------- */
+/* ---------- Navigation: Tab-Leiste unten (Handy, 4 Bereiche + Mehr), Seitenleiste (Desktop, alle Bereiche) ---------- */
 function renderNav(activeId) {
-  const { bar, more } = navLayout();
-  $("#tabs").innerHTML = bar.map(id => {
+  const { order, bar, more } = navLayout();
+  const cur = id => id === activeId ? 'aria-current="page"' : "";
+  const moreActive = activeId === "mehr" || more.includes(activeId) || activeId === "einstellungen";
+  $("#tabbar").innerHTML = bar.map(id => {
     const m = moduleById(id);
-    return `<a href="#${id}" ${id === activeId ? 'aria-current="page"' : ""}>${esc(m.title)}</a>`;
+    return `<a href="#${id}" ${cur(id)}>${icon(m.icon, { size: 25, stroke: 1.8 })}<span>${esc(m.title)}</span></a>`;
+  }).join("") + `<a href="#mehr" ${moreActive ? 'aria-current="page"' : ""}>${icon("more", { size: 25, stroke: 1.8 })}<span>Mehr</span></a>`;
+  $("#side-nav").innerHTML = order.map(id => {
+    const m = moduleById(id);
+    return `<a href="#${id}" ${cur(id)}>${moduleIcon(m, "sm")}<span style="flex:1">${esc(m.title)}</span>${m.soon ? `<span class="soon">bald</span>` : ""}</a>`;
   }).join("");
-  $("#more-menu").innerHTML = more.map(id => {
-    const m = moduleById(id);
-    return `<a href="#${id}" role="menuitem" ${id === activeId ? 'aria-current="page"' : ""}><span>${esc(m.title)}</span>${m.soon ? `<span class="soon">bald</span>` : ""}</a>`;
-  }).join("") + `${more.length ? "<hr>" : ""}<a href="#einstellungen" role="menuitem" ${activeId === "einstellungen" ? 'aria-current="page"' : ""}>Einstellungen</a>
-    <button type="button" role="menuitem" id="m-logout">Abmelden</button>`;
-  $("#more-btn").classList.toggle("active", more.includes(activeId) || activeId === "einstellungen");
-  $("#m-logout").onclick = () => { closeMore(); confirmBox("Wirklich abmelden?", "Abmelden", ctx.logout); };
-  const cur = $("#tabs a[aria-current]");
-  if (cur) cur.scrollIntoView({ block: "nearest", inline: "nearest" });
+  $("#side-foot").innerHTML = `<a href="#einstellungen" ${cur("einstellungen")}>${moduleIcon(moduleById("einstellungen"), "sm")}<span>Einstellungen</span></a>`;
 }
-function closeMore() { $("#more-menu").hidden = true; $("#more-btn").setAttribute("aria-expanded", "false"); }
-$("#more-btn").onclick = () => {
-  const open = $("#more-menu").hidden;
-  $("#more-menu").hidden = !open; $("#more-btn").setAttribute("aria-expanded", String(open));
-  if (open) $("#more-menu a, #more-menu button")?.focus();
-};
-document.addEventListener("click", e => { if (!e.target.closest(".more")) closeMore(); });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#more-menu").hidden) { closeMore(); $("#more-btn").focus(); } });
 
 /* ---------- Router ---------- */
 async function route() {
   if (!user) return;
-  closeMore();
   const id = decodeURIComponent(location.hash.slice(1)) || "dashboard";
   const m = moduleById(id) || moduleById("dashboard");
   const token = ++routeToken;
   if (cleanup) { try { cleanup(); } catch (e) { console.error(e); } cleanup = null; }
   view.innerHTML = "";
   view.classList.toggle("wide", !!m.wide);
+  $("#main").classList.toggle("wide", !!m.wide);
   renderNav(m.id);
   document.title = m.id === "dashboard" ? "Daily Begleiter" : `${m.title} · Daily Begleiter`;
   if (m.soon) {
@@ -177,8 +159,8 @@ onAuthStateChanged(auth, async u => {
   $("#shell").hidden = false;
   view.innerHTML = `<div class="empty">Lade …</div>`;
   stopSettings = await startSettings();
-  stopNav = onSettings(() => { renderHead(); renderNav((decodeURIComponent(location.hash.slice(1)) || "dashboard")); });
-  renderHead();
+  stopNav = onSettings(() => renderNav((decodeURIComponent(location.hash.slice(1)) || "dashboard")));
+  renderThemeBtns();
   stopReminders = startReminders(ctx);
   refreshPush();
   route();

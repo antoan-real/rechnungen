@@ -4,6 +4,8 @@
 //   { start: "2024-10", modules: [{ id, block, slot, name, examType, passed, grade, note }],
 //     examTypes: [{ id, name, color }], upcoming: [{ moduleId, date }] }
 import { icon } from "../core/icons.js";
+import { rowHtml } from "./dashboard.js";
+import { moduleById } from "./registry.js";
 import { $, $$, esc, openSheet, toast, uiZoom } from "../core/ui.js";
 import { watchDoc, put, newId } from "../core/data.js";
 import { today, daysBetween, shortDate } from "../core/dates.js";
@@ -131,7 +133,7 @@ export function mount(el, ctx) {
             <button type="button" class="m-check" data-check aria-pressed="${m.passed}" aria-label="${esc(m.name)} ${m.passed ? "nicht mehr als bestanden markieren" : "als bestanden abhaken"}"></button></span></div>`;
         }).join("");
       }).join("")}</div></section>
-      <section class="card stack"><div><h2>Meine nächsten Prüfungen</h2><p class="note" style="margin-top:6px">Reihenfolge am Griff links ziehen. Die oberste Prüfung erscheint auf der Startseite.</p></div>
+      <section class="grp"><h2 class="sec-h">Meine nächsten Prüfungen</h2><div class="card stack"><div><p class="note" style="margin-top:6px">Reihenfolge am Griff links ziehen. Die oberste Prüfung erscheint auf der Startseite.</p></div>
         <ul class="exams" id="un-exams">${plan.upcoming.map((u, i) => {
           const m = plan.modules.find(x => x.id === u.moduleId); if (!m) return "";
           const t = typeOf(plan, m.examType), days = u.date ? daysBetween(today(), u.date) : null;
@@ -144,7 +146,7 @@ export function mount(el, ctx) {
         ${plan.upcoming.length ? "" : `<p class="muted" style="margin:0">Noch keine Prüfungen geplant.</p>`}
         <div class="row" style="flex-wrap:nowrap"><select class="input" id="un-add" aria-label="Offenes Modul wählen"><option value="">Offenes Modul hinzufügen …</option>${plan.modules.filter(m => !m.passed && !plan.upcoming.some(u => u.moduleId === m.id)).map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("")}</select>
           <button type="button" class="btn" id="un-add-btn">Hinzufügen</button></div>
-      </section>`;
+      </div></section>`;
     bind(body);
   }
 
@@ -282,17 +284,16 @@ export function mount(el, ctx) {
 /* ---------- Kachel für die Startseite ---------- */
 export const widgets = {
   "next-exam"(el) {
-    el.innerHTML = `<div class="tile-head"><h2>Nächste Prüfung</h2></div><div class="empty">Lade …</div>`;
+    const mod = moduleById("uni");
+    el.innerHTML = rowHtml(mod, { href: "uni", title: "Nächste Prüfung", sub: "Lade …" });
     return watchPlan(plan => {
       const u = plan.upcoming[0], m = u && plan.modules.find(x => x.id === u.moduleId);
       const st = stats(plan);
-      if (!m) { el.innerHTML = `<div class="tile-head"><h2>Nächste Prüfung</h2></div><p class="t-title">Keine geplant</p><p class="t-sub"><a href="#uni">Jetzt planen</a> · ${st.passed}/${st.total} bestanden</p>`; return; }
+      if (!m) { el.innerHTML = rowHtml(mod, { href: "uni", title: "Nächste Prüfung", sub: `Keine geplant · ${st.passed}/${st.total} bestanden` }); return; }
       const t = typeOf(plan, m.examType), days = u.date ? daysBetween(today(), u.date) : null;
-      el.innerHTML = `<div class="tile-head"><h2>Nächste Prüfung</h2></div>
-        <a href="#uni" style="color:inherit;text-decoration:none;display:flex;flex-direction:column;gap:6px">
-        <p class="t-title" style="overflow-wrap:anywhere">${esc(m.name)}</p>
-        ${t ? `<span class="small" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;color:color-mix(in srgb, ${esc(t.color)} 78%, var(--ink))"><i style="width:9px;height:9px;border-radius:50%;background:${esc(t.color)};flex:none"></i>${esc(t.name)}</span>` : ""}
-        <p class="t-sub">${u.date ? `${days === 0 ? "heute" : days > 0 ? `in ${days} Tagen` : `vor ${-days} Tagen`} · ${shortDate(u.date)}` : "Datum noch offen"}</p></a>`;
+      const when = days == null ? "Datum offen" : days === 0 ? "heute" : days > 0 ? `in ${days} ${days === 1 ? "Tag" : "Tagen"}` : `vor ${-days} Tagen`;
+      el.innerHTML = rowHtml(mod, { href: "uni", title: esc(m.name),
+        sub: `${t ? `<span style="color:${esc(t.color)};font-weight:500">${esc(t.name)}</span> · ` : ""}${u.date ? shortDate(u.date) : "Nächste Prüfung"}`, value: when });
     });
   }
 };

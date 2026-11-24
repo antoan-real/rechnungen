@@ -37,14 +37,14 @@ Jeder Bereich ist ein eigenes Modul unter `js/modules/`, Daten liegen pro Nutzer
 - Video zu Text: Plattform-Erkennung, passende kostenlose Transkript-Seiten (Link wird kopiert, bei YouTube
   vorausgefüllt), Speichern mit Titel/Link/Notiz, Verlauf mit Volltextsuche
 
-## Design-System ✅
-- Zentrale Tokens in `css/app.css` (Hell/Dunkel, Akzent #C8F25A, Signalfarben), Schrift Space Grotesk,
-  Karten mit 22px Radius und Rand statt Schatten, runde Knöpfe (mind. 44×44), Linien-Icons statt Emojis
-- Kopfbereich mit Datum, „Hey Name“, Hell/Dunkel-Umschalter und Avatar; Text-Tabs mit Unterstrich + „Mehr“
-- Startseite: Hervorhebungs-Kachel Gewohnheiten (Zahl, Serie, Segmentbalken), Höchstgewicht 8 Wochen,
-  Nächste Prüfung und Rechnungen nebeneinander, Gedanke des Tages; am Desktop Raster bis 1200px
-- Lebensreflektor ruhiger (größere Kartenschrift, gedämpfter Akzent); Abschnitte frei auf Leiste / „Mehr“ / aus
-- Einstellungen: Anzeigegröße (wie Strg + Mausrad, 60–150 %) und Schriftgröße (80–140 %), pro Gerät gespeichert
+## Design-System ✅ (iOS-Stil)
+- Schlicht und ruhig, angelehnt an iOS: Farb-Tokens für Hell (#F2F2F7 / #FFFFFF, Blau #0066CC) und Dunkel
+  (#000000 / #1C1C1E, Blau #0A84FF), Systemschrift (sonst Inter), großer Seitentitel 34 px
+- Gruppierte Listen mit 12 px Radius und 0,5-px-Trennlinien, Symbol-Quadrate in iOS-Systemfarben,
+  grüne Checkboxen, Ring für Gewohnheiten, Segment-Umschalter, Balken grau mit aktuellem Wert in Blau
+- Handy: Tab-Leiste unten (4 frei wählbare Bereiche + „Mehr“); Desktop: Seitenleiste mit allen Bereichen
+- Hell/Dunkel/Automatisch pro Nutzer, Umschalter oben rechts und in den Einstellungen
+- Einstellungen: Anzeigegröße (wie Strg + Mausrad) und Schriftgröße, pro Gerät
 
 ## PDF komprimieren ✅
 - Mehrere PDFs zusammenfügen (pdf-lib) und komprimieren (Ghostscript als WebAssembly, AGPL-3.0) – komplett im Browser,

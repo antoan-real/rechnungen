@@ -3,6 +3,8 @@
 // Neu: Status bezahlt/offen pro Rechnung (Feld "paid") für die Startseite.
 import { deliverFile, loadScript, esc as escHtml, uiZoom } from "../../core/ui.js";
 import { icon } from "../../core/icons.js";
+import { rowHtml } from "../dashboard.js";
+import { moduleById } from "../registry.js";
 import { watchCollection, put, remove, currentUid } from "../../core/data.js";
 
 const LIBS = {
@@ -966,13 +968,13 @@ function invoiceTotals(inv) {
 const euro = n => n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
 
 export const widgets = {
-  "open-invoices"(el, ctx) {
-    el.innerHTML = `<div class="tile-head"><h2>Rechnungen</h2></div><div class="empty">Lade …</div>`;
+  "open-invoices"(el) {
+    const mod = moduleById("rechnungen");
+    el.innerHTML = rowHtml(mod, { href: "rechnungen", title: "Offene Rechnungen", sub: "Lade …" });
     return watchCollection("invoices", list => {
       const open = list.filter(i => !i.paid);
       const sum = open.reduce((a, i) => a + invoiceTotals(i), 0);
-      el.innerHTML = `<div class="tile-head"><h2>Rechnungen</h2></div>
-        <a href="#rechnungen" class="kv" style="color:inherit;text-decoration:none"><b>${open.length}</b><span>offen${open.length ? ` · ${escHtml(euro(sum))}` : " · alles bezahlt"}</span></a>`;
+      el.innerHTML = rowHtml(mod, { href: "rechnungen", title: "Offene Rechnungen", sub: open.length ? escHtml(euro(sum)) : "alles bezahlt", value: String(open.length) });
     });
   }
 };

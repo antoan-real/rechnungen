@@ -13,7 +13,7 @@ Reines HTML, CSS und JavaScript (ES-Module), kein Build-Schritt.
 
 ```
 index.html               App-Hülle (Kopfleiste, Login, Bereich)
-css/app.css              Design-System: Farb-Tokens (Hell/Dunkel), Schrift, Bausteine
+css/app.css              Design-System (iOS-Stil): Farb-Tokens Hell/Dunkel, Schrift, gruppierte Listen, Tab-Leiste/Seitenleiste
 js/app.js                Anmeldung, Navigation mit „Mehr“-Menü, Router (#bereich)
 js/firebase.js           Firebase-Konfiguration
 js/core/                 Datenzugriff, Einstellungen, Erinnerungen, Datums- und UI-Helfer, Linien-Icons

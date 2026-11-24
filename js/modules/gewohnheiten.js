@@ -101,10 +101,10 @@ export function mount(el, ctx) {
         <div id="hb-list"></div>
         <details id="hb-free-wrap" hidden><summary class="muted small" style="cursor:pointer;padding:6px 0">Heute nicht geplant</summary><div id="hb-free"></div></details>
       </section>
-      <section class="card stack" id="hb-all-wrap" hidden>
-        <h2>Alle Gewohnheiten</h2>
+      <section class="grp" id="hb-all-wrap" hidden>
+        <h2 class="sec-h">Alle Gewohnheiten</h2><div class="card stack">
         <ul class="sortlist manage" id="hb-all"></ul>
-      </section>
+      </div></section>
     </div>`;
 
   const sub = subscribe(render);
@@ -303,11 +303,10 @@ function openEditor(h, st, ctx) {
   }, { label: isNew ? "Neue Gewohnheit" : "Gewohnheit bearbeiten" });
 }
 
-/* ---------- Kachel für die Startseite (Hervorhebung) ---------- */
+/* ---------- Kachel für „Heute“: Ring mit Fortschritt, darunter die Gewohnheiten zum Abhaken ---------- */
 export const widgets = {
   "habits-today"(el, ctx) {
-    el.classList.add("hl");
-    el.innerHTML = `<div class="tile-head"><h2>Gewohnheiten heute</h2></div><div class="empty" style="color:inherit">Lade …</div>`;
+    el.innerHTML = `<div class="empty">Lade …</div>`;
     const sub = subscribe(st => {
       if (!st.ready.h || !st.ready.l) return;
       const d = today();
@@ -315,25 +314,15 @@ export const widgets = {
       const doneN = planned.filter(h => isDone(h, valueOf(st.logs, d, h.id))).length;
       const streak = dayStreak(st.habits, st.logs, d);
       if (!planned.length) {
-        el.innerHTML = `<div class="tile-head"><h2>Gewohnheiten heute</h2><a href="#gewohnheiten">Alle ${icon("chevron-right", { size: 14 })}</a></div>
-          <p style="margin:0;font-weight:500">${st.habits.length ? "Heute ist nichts geplant." : `Noch keine Gewohnheiten. <a href="#gewohnheiten">Jetzt anlegen</a>`}</p>`;
+        el.innerHTML = `<p style="margin:0">${st.habits.length ? "Heute ist nichts geplant." : `Noch keine Gewohnheiten. <a href="#gewohnheiten">Jetzt anlegen</a>`}</p>`;
         return;
       }
-      el.innerHTML = `<div class="tile-head"><h2>Gewohnheiten heute</h2><a href="#gewohnheiten">Alle ${icon("chevron-right", { size: 14 })}</a></div>
-        <div class="hl-row"><div class="big-num" aria-label="${doneN} von ${planned.length} erledigt">${doneN}/${planned.length}<small>erledigt</small></div>
-          ${streak ? `<span class="streak-pill">${icon("flame", { size: 16 })}${streak} ${streak === 1 ? "Tag" : "Tage"} Serie</span>` : ""}</div>
-        <div class="segbar" aria-hidden="true">${planned.map(h => `<i class="${isDone(h, valueOf(st.logs, d, h.id)) ? "on" : ""}"></i>`).join("")}</div>
-        <div class="hl-habits">${planned.map(h => {
-          const v = valueOf(st.logs, d, h.id), done = isDone(h, v);
-          return `<button type="button" data-id="${esc(h.id)}" aria-pressed="${done}" aria-label="${esc(h.name)}${h.type === "qty" ? ` plus ${fmtNum(h.step || 1)} ${esc(h.unit || "")}` : done ? " erledigt" : " abhaken"}">
-            <span class="dot">${icon(done ? "check" : h.type === "qty" ? "plus" : (h.icon || "circle"), { size: 14 })}</span>${esc(h.name)}${h.type === "qty" ? ` <span class="num" style="opacity:.75">${fmtNum(v)}/${fmtNum(target(h))}</span>` : ""}</button>`;
-        }).join("")}</div>`;
+      el.innerHTML = `<div class="ringline"><div class="ring" style="--p:${Math.round(doneN / planned.length * 100)}" aria-hidden="true"><span>${Math.round(doneN / planned.length * 100)} %</span></div>
+          <div><b>${doneN} von ${planned.length} erledigt</b><span>${streak ? `${streak} ${streak === 1 ? "Tag" : "Tage"} in Folge alles geschafft` : "Heute geht noch was"}</span></div></div>
+        <div>${planned.map(h => rowHtml(h, d, st.logs, { compact: true })).join("")}</div>`;
     });
-    const onClick = e => {
-      const b = e.target.closest(".hl-habits [data-id]"); if (!b) return;
-      const h = sub.state.habits.find(x => x.id === b.dataset.id); if (h) toggle(h, today(), sub.state.logs);
-    };
+    const onClick = e => handleRowClick(e, sub.state, today(), ctx);
     el.addEventListener("click", onClick);
-    return () => { sub.stop(); el.removeEventListener("click", onClick); el.classList.remove("hl"); };
+    return () => { sub.stop(); el.removeEventListener("click", onClick); };
   }
 };

@@ -52,19 +52,19 @@ export function mount(el, ctx) {
   let list = [], q = "", found = null, autoTitle = "";
   el.innerHTML = `<div class="page-head"><div><h1>Video zu Text</h1><p>YouTube, TikTok und Instagram Reels als Text sichern.</p></div></div>
     <div class="grid-2">
-      <section class="card stack">
-        <h2>1 · Link einfügen</h2>
+      <section class="grp">
+        <h2 class="sec-h">1 · Link einfügen</h2><div class="card stack">
         <div class="row" style="flex-wrap:nowrap"><input class="input" type="url" id="vd-link" placeholder="https://www.youtube.com/watch?v=…" aria-label="Video-Link" inputmode="url">
           <button type="button" class="btn" id="vd-paste">Einfügen</button></div>
         <div id="vd-sites" class="stack"></div>
-      </section>
-      <section class="card stack">
-        <h2>2 · Transkript speichern</h2>
+      </div></section>
+      <section class="grp">
+        <h2 class="sec-h">2 · Transkript speichern</h2><div class="card stack">
         <label class="field"><span>Titel</span><input class="input" type="text" id="vd-title" placeholder="wird bei YouTube automatisch ergänzt"></label>
         <label class="field"><span>Transkript (hier einfügen)</span><textarea class="input" id="vd-text" rows="8"></textarea></label>
         <label class="field"><span>Eigene Notiz (optional)</span><textarea class="input" id="vd-note" rows="2"></textarea></label>
         <div><button type="button" class="btn primary" id="vd-save">Speichern</button></div>
-      </section>
+      </div></section>
       <section class="card stack" style="grid-column:1/-1">
         <div class="row" style="justify-content:space-between"><h2>Verlauf</h2><input class="input" type="search" id="vd-q" placeholder="In Titeln, Notizen und Transkripten suchen …" style="flex:0 1 320px;width:auto" aria-label="Verlauf durchsuchen"></div>
         <div id="vd-list"></div>

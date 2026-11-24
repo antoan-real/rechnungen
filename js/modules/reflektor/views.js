@@ -91,8 +91,8 @@ export function renderComplaints(box, st, ctx, ui) {
   const top = [...counts].filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]).slice(0, 12);
   const card = ui.cardId ? st.cards.find(c => c.id === ui.cardId) : null;
   box.innerHTML = `<div class="rf-cols">
-    <section class="card stack">
-      <h2>Was regt dich gerade auf?</h2>
+    <section class="grp">
+      <h2 class="sec-h">Was regt dich gerade auf?</h2><div class="card stack">
       ${!ui.step ? `<form class="stack" id="mk-form"><textarea class="input" id="mk-text" rows="3" placeholder="z. B. Die Bahn ist schon wieder zu spät" aria-label="Worüber du dich ärgerst">${esc(ui.text || "")}</textarea>
           <div><button type="submit" class="btn primary">Umdrehen</button></div></form>
           <p class="note">Schreib es kurz auf. Danach bekommst du eine Frage und eine passende Perspektiv-Karte.</p>`
@@ -101,12 +101,12 @@ export function renderComplaints(box, st, ctx, ui) {
          ${card ? cardHtml(card, { compact: true, label: "Perspektive", actions: `<button type="button" class="btn small ghost" id="mk-other">Andere Karte</button>` }) : ""}
          <label class="field"><span>Meine Umdeutung</span><textarea class="input" id="mk-reframe" rows="3" placeholder="Eigentlich ist das ein Zeichen, dass …">${esc(ui.reframe || "")}</textarea></label>
          <div class="row"><button type="button" class="btn primary" id="mk-save">Speichern</button><button type="button" class="btn" id="mk-cancel">Verwerfen</button></div>`}
-    </section>
-    <section class="card stack"><h2>Worüber ich mich oft ärgere</h2>
+    </div></section>
+    <section class="grp"><h2 class="sec-h">Worüber ich mich oft ärgere</h2><div class="card stack">
       ${top.length ? `<div class="chips">${top.map(([w, n]) => `<span class="chip" aria-pressed="false">${esc(w)} · ${n}×</span>`).join("")}</div>` : `<p class="muted small" style="margin:0">Sobald sich Themen wiederholen, siehst du sie hier.</p>`}
       ${st.complaints.length ? `<ul class="notes">${st.complaints.slice(0, 60).map(c => { const k = st.cards.find(x => x.id === c.cardId); return `<li><small>${esc(shortDay(c.date))}${k ? ` · Karte: ${esc(k.title)}` : ""} <button type="button" class="linkbtn small" data-del="${esc(c.id)}">löschen</button></small>
           <p><span class="muted">Ärger:</span> ${esc(c.text)}</p>${c.reframe ? `<p><span class="muted">Umgedeutet:</span> ${esc(c.reframe)}</p>` : ""}</li>`; }).join("")}</ul>` : ""}
-    </section></div>`;
+    </div></section></div>`;
   $$("textarea", box).forEach(autoGrow);
   box.oninput = e => { if (e.target.tagName === "TEXTAREA") { autoGrow(e.target); if (e.target.id === "mk-reframe") ui.reframe = e.target.value; if (e.target.id === "mk-text") ui.text = e.target.value; } };
   const f = $("#mk-form", box);
@@ -162,8 +162,8 @@ export function renderPeople(box, st, ctx, ui) {
         <textarea class="input" id="pp-text" rows="3" placeholder="${(ui.type || "Geschichte") === "Spruch" ? "Was sagt er/sie immer?" : (ui.type || "Geschichte") === "Eigenart" ? "Was macht er/sie typischerweise?" : "Welche Geschichte erzählt er/sie?"}" aria-label="Neuer Eintrag"></textarea>
         <div><button type="submit" class="btn primary small">Festhalten</button></div></form>
     </section>
-    ${ENTRY_TYPES.map(t => by(t).length ? `<section class="card stack"><h2>${t === "Geschichte" ? "Geschichten" : t === "Spruch" ? "Sprüche" : "Eigenarten"}</h2>
-      <ul class="notes">${by(t).map(x => `<li><small>${esc(shortDay(x.date))} <button type="button" class="linkbtn small" data-edit="${esc(x.id)}">bearbeiten</button> <button type="button" class="linkbtn small" data-del="${esc(x.id)}">löschen</button></small><p>${esc(x.text)}</p></li>`).join("")}</ul></section>` : "").join("")}
+    ${ENTRY_TYPES.map(t => by(t).length ? `<section class="grp"><h2 class="sec-h">${t === "Geschichte" ? "Geschichten" : t === "Spruch" ? "Sprüche" : "Eigenarten"}</h2><div class="card stack">
+      <ul class="notes">${by(t).map(x => `<li><small>${esc(shortDay(x.date))} <button type="button" class="linkbtn small" data-edit="${esc(x.id)}">bearbeiten</button> <button type="button" class="linkbtn small" data-del="${esc(x.id)}">löschen</button></small><p>${esc(x.text)}</p></li>`).join("")}</ul></div></section>` : "").join("")}
     <div><button type="button" class="btn danger small" id="pp-delete">Person löschen</button></div></div>`;
   const savePerson = patch => merge("people", p.id, patch).catch(fail);
   $("#pp-back", box).onclick = () => { ui.personId = null; renderPeople(box, st, ctx, ui); };
@@ -202,15 +202,15 @@ export function renderZoom(box, st, ctx, ui) {
   const mon = addDays(d, -((new Date().getDay() + 6) % 7));
   const past = Object.values(st.reflections).filter(r => r.id !== id).sort((a, b) => String(b.period).localeCompare(String(a.period)));
   box.innerHTML = `<div class="stack">
-    <section class="card stack">
-      <h2>Rauszoomen · KW ${isoWeek(d).week} · ${esc(shortDate(mon).slice(0, 6))}–${esc(shortDate(addDays(mon, 6)).slice(0, 6))}</h2>
+    <section class="grp">
+      <h2 class="sec-h">Rauszoomen · KW ${isoWeek(d).week} · ${esc(shortDate(mon).slice(0, 6))}–${esc(shortDate(addDays(mon, 6)).slice(0, 6))}</h2><div class="card stack">
       ${qs.map((q, i) => `<label class="field"><span style="font-size:calc(18px * var(--fs));line-height:1.45;color:var(--ink);font-weight:500">${esc(q)}</span>
         <textarea class="input" rows="3" data-q="${i}">${esc(saved?.answers[i]?.a || "")}</textarea></label>`).join("")}
       <div class="row"><button type="button" class="btn primary" id="rz-save">${saved ? "Änderungen speichern" : "Speichern"}</button>
         <span class="note">${saved ? `Gespeichert am ${esc(shortDay(saved.date))}` : "Jede Woche drei wechselnde Fragen. Den Katalog änderst du in den Einstellungen."}</span></div>
-    </section>
-    ${past.length ? `<section class="card stack"><h2>Frühere Wochen</h2>${past.slice(0, 30).map(r => `<details><summary style="cursor:pointer">${r.type === "month" ? "Monatsrückblick " : "KW "}${esc(r.type === "month" ? r.period : r.period.split("-W")[1] + " / " + r.period.split("-W")[0])} <span class="muted small">· ${esc(shortDay(r.date))}</span></summary>
-      <ul class="notes" style="margin-top:10px">${r.answers.filter(a => a.a).map(a => `<li><small>${esc(a.q)}</small><p>${esc(a.a)}</p></li>`).join("")}</ul></details>`).join("")}</section>` : ""}
+    </div></section>
+    ${past.length ? `<section class="grp"><h2 class="sec-h">Frühere Wochen</h2><div class="card stack">${past.slice(0, 30).map(r => `<details><summary style="cursor:pointer">${r.type === "month" ? "Monatsrückblick " : "KW "}${esc(r.type === "month" ? r.period : r.period.split("-W")[1] + " / " + r.period.split("-W")[0])} <span class="muted small">· ${esc(shortDay(r.date))}</span></summary>
+      <ul class="notes" style="margin-top:10px">${r.answers.filter(a => a.a).map(a => `<li><small>${esc(a.q)}</small><p>${esc(a.a)}</p></li>`).join("")}</ul></details>`).join("")}</div></section>` : ""}
   </div>`;
   $$("textarea", box).forEach(autoGrow);
   box.oninput = e => { if (e.target.tagName === "TEXTAREA") autoGrow(e.target); };

@@ -1,8 +1,8 @@
 // Einstellungen: Name, Design, Navigation, Dashboard-Kacheln, Benachrichtigungen, Installation, Konto.
 import { $, $$, esc } from "../core/ui.js";
 import { navLayout, dashboardLayout, applyTheme, getView, applyView, ZOOM, FONT } from "../core/settings.js";
-import { icon } from "../core/icons.js";
-import { moduleById } from "./registry.js";
+import { icon, moduleIcon } from "../core/icons.js";
+import { moduleById, BAR_MAX } from "./registry.js";
 import { auth, sendPasswordResetEmail } from "../firebase.js";
 import { pushConfigured, pushSupported, pushOnHere, enablePush, disablePush } from "../core/push.js";
 
@@ -11,14 +11,14 @@ export function mount(el, ctx) {
   el.innerHTML = `
     <div class="page-head"><div><h1>Einstellungen</h1><p>Änderungen werden sofort gespeichert.</p></div></div>
     <div class="grid-2">
-      <section class="card stack">
-        <h2>Allgemein</h2>
-        <label class="field"><span>Dein Name (für „Hey …“ oben)</span><input class="input" type="text" id="st-name" autocomplete="given-name"></label>
+      <section class="grp">
+        <h2 class="sec-h">Allgemein</h2><div class="card stack">
+        <label class="field"><span>Dein Name</span><input class="input" type="text" id="st-name" autocomplete="given-name"></label>
         <div class="field"><span>Design</span>
-          <div class="seg" id="st-theme" role="group" aria-label="Design">
+          <div class="seg full" id="st-theme" role="group" aria-label="Design">
             <button type="button" data-v="light">Hell</button><button type="button" data-v="dark">Dunkel</button><button type="button" data-v="system">Automatisch</button>
           </div></div>
-        <div class="field"><span>Anzeigegröße (wie Strg + Mausrad: kleiner = mehr passt auf den Bildschirm)</span>
+        <div class="field"><span>Anzeigegröße</span>
           <div class="scale-row"><button type="button" class="btn icon small" data-step="zoom:-1" aria-label="Anzeige verkleinern">${icon("minus")}</button>
           <input type="range" id="st-zoom" min="${ZOOM.min}" max="${ZOOM.max}" step="${ZOOM.step}" aria-label="Anzeigegröße">
           <button type="button" class="btn icon small" data-step="zoom:1" aria-label="Anzeige vergrößern">${icon("plus")}</button><b class="num" id="st-zoom-v"></b></div></div>
@@ -26,11 +26,11 @@ export function mount(el, ctx) {
           <div class="scale-row"><button type="button" class="btn icon small" data-step="font:-1" aria-label="Schrift verkleinern">${icon("minus")}</button>
           <input type="range" id="st-font" min="${FONT.min}" max="${FONT.max}" step="${FONT.step}" aria-label="Schriftgröße">
           <button type="button" class="btn icon small" data-step="font:1" aria-label="Schrift vergrößern">${icon("plus")}</button><b class="num" id="st-font-v"></b></div></div>
-        <div class="row" style="justify-content:space-between"><p class="note">Gilt nur für dieses Gerät – Handy und PC getrennt.</p><button type="button" class="linkbtn" id="st-view-reset">Zurücksetzen</button></div>
-      </section>
+        <div class="row" style="justify-content:space-between"><p class="note">Anzeigegröße wirkt wie Strg + Mausrad: kleiner = mehr passt auf den Bildschirm. Gilt nur für dieses Gerät.</p><button type="button" class="linkbtn" id="st-view-reset">Zurücksetzen</button></div>
+      </div></section>
 
-      <section class="card stack" id="notif">
-        <h2>Benachrichtigungen</h2>
+      <section class="grp" id="notif">
+        <h2 class="sec-h">Benachrichtigungen</h2><div class="card stack">
         <p class="note" id="nt-state"></p>
         <div class="row"><button type="button" class="btn" id="nt-ask">Benachrichtigungen erlauben</button><button type="button" class="btn" id="nt-test">Test senden</button></div>
         <p class="note">Erinnerungen stellst du bei jeder Gewohnheit ein.</p>
@@ -39,29 +39,29 @@ export function mount(el, ctx) {
           <label class="switch"><input type="checkbox" id="push-on" aria-label="Push auf diesem Gerät"><span></span></label></div>
           <p class="note">Ein Dienst prüft etwa alle 15 Minuten, ob Erinnerungen fällig sind. Sie kommen deshalb bis zu ca. 15 Minuten nach der eingestellten Uhrzeit. Jedes Gerät wird einzeln eingeschaltet.</p>
         </div>
-      </section>
+      </div></section>
 
-      <section class="card stack">
-        <div><h2>Navigation</h2><p class="note" style="margin-top:6px">Reihenfolge mit den Pfeilen ändern. Eingeschaltete Bereiche stehen in der Leiste, die anderen im „Mehr“-Menü.</p></div>
+      <section class="grp">
+        <h2 class="sec-h">Tab-Leiste</h2><div class="card stack"><div><p class="note">Am Handy stehen bis zu 4 eingeschaltete Bereiche unten in der Tab-Leiste, alle anderen unter „Mehr“. Am Computer zeigt die Seitenleiste alle Bereiche in dieser Reihenfolge.</p></div>
         <ul class="sortlist" id="st-nav"></ul>
-      </section>
+      </div></section>
 
-      <section class="card stack" id="dashboard">
-        <div><h2>Startseite</h2><p class="note" style="margin-top:6px">Welche Kacheln erscheinen und in welcher Reihenfolge.</p></div>
+      <section class="grp" id="dashboard">
+        <h2 class="sec-h">Heute</h2><div class="card stack"><div><p class="note">Welche Kacheln auf „Heute“ erscheinen und in welcher Reihenfolge.</p></div>
         <ul class="sortlist" id="st-dash"></ul>
-      </section>
+      </div></section>
 
-      <section class="card stack">
-        <h2>App installieren</h2>
+      <section class="grp">
+        <h2 class="sec-h">App installieren</h2><div class="card stack">
         <p class="note" id="inst-text"></p>
         <button type="button" class="btn" id="inst-btn" hidden>Auf diesem Gerät installieren</button>
-      </section>
+      </div></section>
 
-      <section class="card stack">
-        <h2>Konto</h2>
+      <section class="grp">
+        <h2 class="sec-h">Konto</h2><div class="card stack">
         <p style="margin:0">Angemeldet als <b id="acc-mail"></b></p>
         <div class="row"><button type="button" class="btn" id="acc-pw">Passwort ändern</button><button type="button" class="btn danger" id="acc-out">Abmelden</button></div>
-      </section>
+      </div></section>
     </div>`;
 
   /* Allgemein */
@@ -104,10 +104,10 @@ export function mount(el, ctx) {
     $("#st-nav", el).innerHTML = order.map((id, i) => {
       const m = moduleById(id);
       return `<li data-id="${id}">
-        <span class="name">${esc(m.title)}${m.soon ? `<small>kommt in ${esc(m.soon)}</small>` : ""}</span>
+        ${moduleIcon(m)}<span class="name">${esc(m.title)}${m.soon ? `<small>kommt in ${esc(m.soon)}</small>` : ""}</span>
         <button type="button" class="btn icon small" data-mv="-1" ${i === 0 ? "disabled" : ""} aria-label="${esc(m.title)} nach oben">${icon("arrow-up")}</button>
         <button type="button" class="btn icon small" data-mv="1" ${i === order.length - 1 ? "disabled" : ""} aria-label="${esc(m.title)} nach unten">${icon("arrow-down")}</button>
-        <label class="switch" title="In der Leiste"><input type="checkbox" ${bar.includes(id) ? "checked" : ""} aria-label="${esc(m.title)} in der Leiste"><span></span></label>
+        <label class="switch" title="In der Tab-Leiste"><input type="checkbox" ${bar.includes(id) ? "checked" : ""} aria-label="${esc(m.title)} in der Tab-Leiste"><span></span></label>
       </li>`;
     }).join("");
   }
@@ -121,6 +121,11 @@ export function mount(el, ctx) {
   $("#st-nav", el).addEventListener("change", e => {
     const id = e.target.closest("li").dataset.id;
     const { order, bar } = navLayout(ctx.settings());
+    if (e.target.checked && bar.length >= BAR_MAX) {
+      e.target.checked = false;
+      ctx.toast(`In der Tab-Leiste ist Platz für ${BAR_MAX} Bereiche. Schalte zuerst einen anderen aus.`);
+      return;
+    }
     const next = e.target.checked ? [...bar, id] : bar.filter(x => x !== id);
     ctx.saveSettings({ nav: { order, bar: next } });
   });

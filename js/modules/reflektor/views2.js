@@ -45,13 +45,13 @@ export function renderWheel(box, st, ctx, ui, nav) {
       <div id="lr-radar" style="width:100%;max-width:420px">${radarSvg(areas, ui.draft, prev)}</div>
       <div class="legend-row"><span><i style="background:var(--rf-accent)"></i>${esc(monthName(ui.month))}${entry ? "" : " (Entwurf)"}</span>${prev ? `<span><i style="background:var(--muted)"></i>${esc(monthName(prevKey))}</span>` : ""}</div>
     </section>
-    <section class="card stack"><h2>Wie zufrieden bist du gerade?</h2>
+    <section class="grp"><h2 class="sec-h">Wie zufrieden bist du gerade?</h2><div class="card stack">
       <div class="sliders" id="lr-sliders">${areas.map(a => `<label><span>${esc(a.name)}</span><b class="num" data-v="${esc(a.id)}">${ui.draft[a.id]}</b>
         <input type="range" min="1" max="10" step="1" value="${ui.draft[a.id]}" data-a="${esc(a.id)}" aria-label="${esc(a.name)}"></label>`).join("")}</div>
       <label class="field"><span>Gedanken dazu (optional)</span><textarea class="input" id="lr-note" rows="2">${esc(entry?.note || "")}</textarea></label>
       <div class="row"><button type="button" class="btn primary" id="lr-save">${entry ? "Änderungen speichern" : "Speichern"}</button>${entry ? `<span class="note">gespeichert</span>` : ""}</div>
-    </section></div>
-    <section class="card stack"><h2>Verlauf</h2>${months.length >= 2 ? `<div id="lr-line"></div>` : `<p class="muted small" style="margin:0">Ab dem zweiten Monat siehst du hier, wie sich deine Bereiche entwickeln.</p>`}</section></div>`;
+    </div></section></div>
+    <section class="grp"><h2 class="sec-h">Verlauf</h2><div class="card stack">${months.length >= 2 ? `<div id="lr-line"></div>` : `<p class="muted small" style="margin:0">Ab dem zweiten Monat siehst du hier, wie sich deine Bereiche entwickeln.</p>`}</div></section></div>`;
   autoGrow($("#lr-note", box));
   box.oninput = e => {
     const r = e.target.closest("[data-a]");
@@ -75,20 +75,20 @@ export function renderWheel(box, st, ctx, ui, nav) {
 export function renderWeeks(box, st, ctx) {
   const birth = optionsOf(st.cfg).birthday;
   if (!birth) {
-    box.innerHTML = `<section class="card stack" style="max-width:520px"><h2>Leben in Wochen</h2>
+    box.innerHTML = `<section class="grp" style="max-width:520px"><h2 class="sec-h">Leben in Wochen</h2><div class="card stack">
       <p class="serif">Ein Kästchen für jede Woche eines 80-jährigen Lebens. Trag einmal dein Geburtsdatum ein.</p>
-      <div class="row"><input class="input" type="date" id="lw-birth" style="max-width:200px" aria-label="Geburtsdatum"><button type="button" class="btn primary" id="lw-save">Speichern</button></div></section>`;
+      <div class="row"><input class="input" type="date" id="lw-birth" style="max-width:200px" aria-label="Geburtsdatum"><button type="button" class="btn primary" id="lw-save">Speichern</button></div></div></section>`;
     $("#lw-save", box).onclick = () => { const v = $("#lw-birth", box).value; if (v) merge("settings", "reflect", { birthday: v }).catch(fail); };
     return;
   }
   const lived = Math.max(0, Math.floor(daysBetween(birth, today()) / 7)), TOTAL = 80 * 52;
   const years = Math.floor(lived / 52), weeks = lived % 52;
-  box.innerHTML = `<section class="card stack">
-    <h2>Leben in Wochen</h2>
+  box.innerHTML = `<section class="grp">
+    <h2 class="sec-h">Leben in Wochen</h2><div class="card stack">
     <p class="serif" style="font-size:calc(18px * var(--fs))">Du bist ${years} Jahre und ${weeks} Woche${weeks === 1 ? "" : "n"} alt – Woche ${fmt(lived + 1, 0)} von ${fmt(TOTAL, 0)}. Jedes Kästchen ist eine Woche. Mach die nächste zu einer, an die du dich gern erinnerst.</p>
     <div class="legend-row"><span><i style="background:var(--muted)"></i>gelebt (${fmt(Math.min(100, lived / TOTAL * 100))} %)</span><span><i style="background:var(--rf-accent)"></i>diese Woche</span><span><i style="background:transparent;border:1px solid var(--line)"></i>noch vor dir</span></div>
     <div class="weeks-wrap"><canvas id="lw-canvas" role="img" aria-label="${fmt(lived, 0)} von ${fmt(TOTAL, 0)} Lebenswochen gelebt"></canvas></div>
-    <p class="note">Geburtsdatum ändern: Einstellungen des Lebensreflektors.</p></section>`;
+    <p class="note">Geburtsdatum ändern: Einstellungen des Lebensreflektors.</p></div></section>`;
   const canvas = $("#lw-canvas", box), wrap = canvas.parentElement;
   const draw = () => {
     const cs = getComputedStyle(box), col = n => cs.getPropertyValue(n).trim();
@@ -123,18 +123,18 @@ export function renderReview(box, st, ctx, ui, nav) {
 
   if (ui.view === "rueckblick") {
     const looks = lookbacks(st, d), mem = ui.memory || randomMemory(st, d);
-    html += `<div class="rf-cols"><section class="card stack"><h2>Heute vor …</h2>
+    html += `<div class="rf-cols"><section class="grp"><h2 class="sec-h">Heute vor …</h2><div class="card stack">
       ${looks.length ? looks.map(l => `<div class="lookback"><small>${esc(l.label)} · ${esc(shortDay(l.date))} hast du geschrieben:</small>${l.lines.map(x => `<p class="serif"><span class="muted small">${esc(x.kind)}:</span> ${esc(x.text)}</p>`).join("")}</div>`).join("")
-        : `<p class="muted" style="margin:0">Hier erscheint, was du heute vor einem Monat und vor einem Jahr geschrieben hast.</p>`}</section>
-      <section class="card stack"><h2>Zufällige Erinnerung</h2>
+        : `<p class="muted" style="margin:0">Hier erscheint, was du heute vor einem Monat und vor einem Jahr geschrieben hast.</p>`}</div></section>
+      <section class="grp"><h2 class="sec-h">Zufällige Erinnerung</h2><div class="card stack">
       ${mem ? `<p class="small muted" style="margin:0">${esc(shortDay(mem.date))} · ${esc(mem.kind)}</p><p class="serif" style="font-size:calc(19px * var(--fs))">${esc(mem.text)}</p><div><button type="button" class="btn small" id="rv-more">Noch eine</button></div>`
-        : `<p class="muted" style="margin:0">Sobald deine Einträge älter als einen Monat sind, holt die App hier ab und zu einen zurück.</p>`}</section></div>`;
+        : `<p class="muted" style="margin:0">Sobald deine Einträge älter als einen Monat sind, holt die App hier ab und zu einen zurück.</p>`}</div></section></div>`;
   }
   if (ui.view === "momente") {
     const ms = Object.values(st.journal).filter(j => j.moment?.trim()).sort((a, b) => b.date.localeCompare(a.date));
     let last = "";
-    html += `<section class="card stack"><h2>Alltagsmomente</h2>${ms.length ? `<ul class="timeline">${ms.map(j => { const m = j.date.slice(0, 7), head = m !== last ? `<li class="tl-month" aria-hidden="true" style="list-style:none">${esc(monthName(m))}</li>` : ""; last = m; return head + `<li><small>${esc(shortDay(j.date))}</small><p class="serif" style="font-size:calc(17px * var(--fs))">${esc(j.moment)}</p></li>`; }).join("")}</ul>`
-      : `<p class="muted" style="margin:0">Noch keine Alltagsmomente. Halte im Check-in fest, was heute ganz normal war – genau das wird später wertvoll.</p>`}</section>`;
+    html += `<section class="grp"><h2 class="sec-h">Alltagsmomente</h2><div class="card stack">${ms.length ? `<ul class="timeline">${ms.map(j => { const m = j.date.slice(0, 7), head = m !== last ? `<li class="tl-month" aria-hidden="true" style="list-style:none">${esc(monthName(m))}</li>` : ""; last = m; return head + `<li><small>${esc(shortDay(j.date))}</small><p class="serif" style="font-size:calc(17px * var(--fs))">${esc(j.moment)}</p></li>`; }).join("")}</ul>`
+      : `<p class="muted" style="margin:0">Noch keine Alltagsmomente. Halte im Check-in fest, was heute ganz normal war – genau das wird später wertvoll.</p>`}</div></section>`;
   }
   if (ui.view === "jahr") {
     const years = [...new Set([...Object.keys(st.journal), ...Object.keys(st.wheel), ...st.complaints.map(c => c.date), d].map(x => x.slice(0, 4)))].sort().reverse();
@@ -159,11 +159,11 @@ export function renderReview(box, st, ctx, ui, nav) {
         <div class="stat"><span>Mal rausgezoomt</span><b>${weeksDone}</b></div>
         ${moods.length ? `<div class="stat"><span>Ø Stimmung</span><b>${fmt(moods.reduce((a, j) => a + j.mood, 0) / moods.length)}</b><small>aus ${moods.length} Tagen</small></div>` : ""}
       </div>
-      ${moods.length ? `<section class="card stack"><h2>Stimmung pro Monat (Ø)</h2><div id="rv-mood"></div></section>` : ""}
-      ${wheelMonths.length >= 2 ? `<section class="card stack"><h2>Lebensrad im Jahresverlauf</h2><div id="rv-wheel"></div></section>` : ""}
-      ${pick.length ? `<section class="card stack"><h2>Wofür du dankbar warst</h2><ul class="notes">${pick.map(g => `<li><small>${esc(shortDay(g.date))}</small><p>${esc(g.text)}</p></li>`).join("")}</ul></section>` : ""}
-      ${moments.length ? `<section class="card stack"><h2>Deine Alltagsmomente ${y}</h2><ul class="timeline">${moments.map(j => `<li><small>${esc(shortDay(j.date))}</small><p class="serif">${esc(j.moment)}</p></li>`).join("")}</ul></section>` : ""}
-      ${notes.length ? `<section class="card stack"><h2>Wo dir die Gedanken begegnet sind</h2><ul class="notes">${notes.sort((a, b) => a.date.localeCompare(b.date)).map(n => `<li><small>${esc(shortDay(n.date))} · ${esc(n.card)}</small><p>${esc(n.text)}</p></li>`).join("")}</ul></section>` : ""}
+      ${moods.length ? `<section class="grp"><h2 class="sec-h">Stimmung pro Monat (Ø)</h2><div class="card stack"><div id="rv-mood"></div></div></section>` : ""}
+      ${wheelMonths.length >= 2 ? `<section class="grp"><h2 class="sec-h">Lebensrad im Jahresverlauf</h2><div class="card stack"><div id="rv-wheel"></div></div></section>` : ""}
+      ${pick.length ? `<section class="grp"><h2 class="sec-h">Wofür du dankbar warst</h2><div class="card stack"><ul class="notes">${pick.map(g => `<li><small>${esc(shortDay(g.date))}</small><p>${esc(g.text)}</p></li>`).join("")}</ul></div></section>` : ""}
+      ${moments.length ? `<section class="grp"><h2 class="sec-h">Deine Alltagsmomente ${y}</h2><div class="card stack"><ul class="timeline">${moments.map(j => `<li><small>${esc(shortDay(j.date))}</small><p class="serif">${esc(j.moment)}</p></li>`).join("")}</ul></div></section>` : ""}
+      ${notes.length ? `<section class="grp"><h2 class="sec-h">Wo dir die Gedanken begegnet sind</h2><div class="card stack"><ul class="notes">${notes.sort((a, b) => a.date.localeCompare(b.date)).map(n => `<li><small>${esc(shortDay(n.date))} · ${esc(n.card)}</small><p>${esc(n.text)}</p></li>`).join("")}</ul></div></section>` : ""}
       ${!js.length && !comps.length && !notes.length ? `<div class="card empty">Für ${y} gibt es noch keine Einträge.</div>` : ""}</div>`;
     ui._chart = { moods, wheelMonths, y };
   }

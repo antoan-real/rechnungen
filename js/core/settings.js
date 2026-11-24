@@ -1,6 +1,6 @@
 // App-Einstellungen (Navigation, Dashboard, Design, Name) in users/{uid}/settings/app.
 import { watchDoc, merge } from "./data.js";
-import { MODULES, WIDGETS, DEFAULT_BAR } from "../modules/registry.js";
+import { MODULES, WIDGETS, DEFAULT_BAR, BAR_MAX } from "../modules/registry.js";
 
 let current = null;
 const listeners = new Set();
@@ -20,7 +20,7 @@ export const getSettings = () => current || {};
 export function onSettings(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 export const saveSettings = patch => merge("settings", "app", patch);
 
-const THEME_BG = { light: "#F3F4F0", dark: "#0F1113" };
+const THEME_BG = { light: "#F2F2F7", dark: "#000000" };
 const darkQuery = matchMedia("(prefers-color-scheme: dark)");
 /** Tatsächlich sichtbares Design: "light" oder "dark" */
 export const effectiveTheme = () => document.documentElement.dataset.theme || (darkQuery.matches ? "dark" : "light");
@@ -42,7 +42,9 @@ export function navLayout(s = getSettings()) {
   const ids = MODULES.map(m => m.id);
   const order = [...(s.nav?.order || []).filter(id => ids.includes(id)), ...ids.filter(id => !(s.nav?.order || []).includes(id))];
   const barSet = new Set((s.nav?.bar || DEFAULT_BAR).filter(id => ids.includes(id)));
-  return { order, bar: order.filter(id => barSet.has(id)), more: order.filter(id => !barSet.has(id)) };
+  // Tab-Leiste: höchstens BAR_MAX Bereiche (in der gewählten Reihenfolge), alle übrigen unter „Mehr“
+  const bar = order.filter(id => barSet.has(id)).slice(0, BAR_MAX);
+  return { order, bar, more: order.filter(id => !bar.includes(id)) };
 }
 
 /** Kacheln in Reihenfolge mit Sichtbarkeit. Noch nicht gebaute Kacheln sind nie sichtbar. */

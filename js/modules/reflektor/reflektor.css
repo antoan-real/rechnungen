@@ -1,36 +1,30 @@
-/* Lebensreflektor: gleiche Farben und Schrift wie die übrige App, aber ruhiger – mehr Weißraum,
-   größere Schrift für die Perspektiv-Karten, gedämpfter Akzent, keine Hervorhebungs-Kacheln. Alles unter .rf. */
-.rf { --rf-accent: #4E6B2A; --rf-accent-ink: #FFFFFF; --rf-accent-soft: color-mix(in srgb, #4E6B2A 9%, var(--surface)) }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rf { --rf-accent: #B9CC8C; --rf-accent-ink: #121416; --rf-accent-soft: color-mix(in srgb, #B9CC8C 10%, var(--surface)) } }
-:root[data-theme="dark"] .rf { --rf-accent: #B9CC8C; --rf-accent-ink: #121416; --rf-accent-soft: color-mix(in srgb, #B9CC8C 10%, var(--surface)) }
-
+/* Lebensreflektor: gleicher Stil wie die übrige App, für die Perspektiv-Karten größere Schrift
+   (19–21 px, Zeilenhöhe 1,5) und viel Weißraum. Alles unter .rf. */
+.rf { --rf-accent: var(--accent); --rf-accent-ink: #FFFFFF; --rf-accent-soft: var(--accent-soft) }
 .rf .card { padding: 22px }
 .rf .stack { gap: 16px }
 .rf .btn.primary { background: var(--rf-accent); border-color: var(--rf-accent); color: var(--rf-accent-ink) }
-.rf textarea.input { font-size: calc(16px * var(--fs)); line-height: 1.6 }
-.rf .chip[aria-pressed="true"], .rf .seg button[aria-pressed="true"] { background: var(--rf-accent); border-color: var(--rf-accent); color: var(--rf-accent-ink) }
-.rf .switch input:checked + span { background: var(--rf-accent) }
-.rf .switch input:checked + span::after { background: var(--rf-accent-ink) }
+.rf textarea.input { font-size: calc(17px * var(--fs)); line-height: 1.5 }
+.rf .chip[aria-pressed="true"] { background: var(--rf-accent); border-color: var(--rf-accent); color: var(--rf-accent-ink) }
 .view .rf .page-head { margin-bottom: 8px; flex-wrap: nowrap; align-items: flex-start }
 
 /* Unterbereiche: Text-Tabs mit Unterstrich, rechts „Mehr“ */
-.rf-nav { display: flex; align-items: stretch; gap: 8px; border-bottom: 1px solid var(--line); margin: 0 0 24px }
+.rf-nav { display: flex; align-items: stretch; gap: 8px; border-bottom: var(--hair) solid var(--line); margin: 0 0 24px }
 .rf-tabs { display: flex; gap: 22px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0 }
 .rf-tabs::-webkit-scrollbar { display: none }
 .rf .uline-tabs button[aria-selected="true"], .rf .more-btn.active { border-bottom-color: var(--rf-accent) }
-.rf .more-menu a[aria-current="page"]::after, .rf .more-menu button[aria-current="true"]::after { background: var(--rf-accent) }
 .rf-cols { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) }
 @container (min-width: 900px) { .rf-cols { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) } }
 
 /* Perspektiv-Karte */
 .thought { padding: clamp(24px, 5vw, 40px); display: flex; flex-direction: column; gap: 14px }
-.thought .t-cat { font-size: calc(12px * var(--fs)); font-weight: 500; letter-spacing: .02em; color: var(--muted) }
+.thought .t-cat { font-size: calc(13px * var(--fs)); font-weight: 400; text-transform: uppercase; letter-spacing: .02em; color: var(--muted) }
 .thought h3 { font-weight: 700; font-size: calc(clamp(22px, 4.4vw, 26px) * var(--fs)); line-height: 1.25; letter-spacing: -.01em; color: var(--ink); margin: 0; text-wrap: balance }
-.thought .t-text { font-size: calc(clamp(18px, 2.4vw, 21px) * var(--fs)); line-height: 1.5; color: var(--ink); max-width: 60ch; margin: 0; white-space: pre-line; hyphens: manual }
+.thought .t-text { font-size: calc(clamp(19px, 2.4vw, 21px) * var(--fs)); line-height: 1.5; color: var(--ink); max-width: 60ch; margin: 0; white-space: pre-line; hyphens: manual }
 .thought .t-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px }
 .thought.compact { padding: 20px 22px; gap: 8px }
 .thought.compact h3 { font-size: calc(18px * var(--fs)) }
-.thought.compact .t-text { font-size: calc(16px * var(--fs)); line-height: 1.55 }
+.thought.compact .t-text { font-size: calc(17px * var(--fs)); line-height: 1.5 }
 .fav { border: 0; background: none; cursor: pointer; color: var(--muted); width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; padding: 0 }
 .fav:hover { background: var(--surface-2) }
 .fav[aria-pressed="true"] { color: var(--rf-accent) }

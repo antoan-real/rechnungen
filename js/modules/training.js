@@ -128,20 +128,20 @@ export function mount(el, ctx) {
     sel = (sel || exs.slice().sort((a, b) => counts[b.id] - counts[a.id]).slice(0, 3).map(e => e.id)).filter(id => exs.some(e => e.id === id));
     const last4 = m.weeks.slice(8).reduce((a, w) => a + m.countByWeek[w], 0), prev4 = m.weeks.slice(4, 8).reduce((a, w) => a + m.countByWeek[w], 0);
     body.innerHTML = `<div class="stack">
-      <section class="card stack"><h2>Gesamtfortschritt</h2>
+      <section class="grp"><h2 class="sec-h">Gesamtfortschritt</h2><div class="card stack">
         <div class="tiles">
           <div class="stat"><span>Ø Steigerung Höchstgewicht</span><b>${m.avgChange == null ? "–" : (m.avgChange >= 0 ? "+" : "") + fmt(m.avgChange) + " %"}</b><small>${m.avgChange == null ? "braucht Daten aus 8 Wochen" : `letzte 4 Wochen ggü. davor · ${m.changeN} Übung${m.changeN === 1 ? "" : "en"}`}</small></div>
           <div class="stat"><span>Einheiten diese Woche</span><b>${m.countByWeek[m.weeks[11]]}</b><small>Vorwoche: ${m.countByWeek[m.weeks[10]]}</small></div>
           <div class="stat"><span>Einheiten letzte 4 Wochen</span><b>${last4}</b><small>4 Wochen davor: ${prev4}</small></div>
         </div>
         <div><h3 style="font-size:calc(14px * var(--fs));margin-bottom:6px">Einheiten pro Woche</h3><div id="tr-vol"></div></div>
-      </section>
-      <section class="card stack"><h2>Fortschritt je Übung</h2>
+      </div></section>
+      <section class="grp"><h2 class="sec-h">Fortschritt je Übung</h2><div class="card stack">
         <div class="chips selchips" id="tr-sel">${exs.map(e => `<button type="button" class="chip" data-ex="${esc(e.id)}" aria-pressed="${sel.includes(e.id)}"><i style="background:${e.color}"></i>${esc(e.name)}</button>`).join("") || `<span class="muted">Noch keine Übungen.</span>`}</div>
         <div id="tr-line"></div>
         <details><summary class="muted small" style="cursor:pointer">Werte als Tabelle</summary><div class="tbl-wrap" id="tr-table" style="margin-top:8px"></div></details>
         <p class="note">Angezeigt wird das höchste Gewicht pro Einheit.</p>
-      </section></div>`;
+      </div></section></div>`;
     cleanups.push(columnChart($("#tr-vol", body), {
       bars: m.weeks.map(w => ({ label: "KW " + isoWeekNr(w), value: m.countByWeek[w], tip: `KW ${isoWeekNr(w)} (ab ${dateLabel(w)})` })),
       unit: "Einheiten", label: "Einheiten pro Woche"
@@ -311,7 +311,7 @@ function liftWeeks(st, exId) {
 }
 export const widgets = {
   "last-training"(el, ctx) {
-    el.innerHTML = `<div class="tile-head"><h2>Training</h2></div><div class="empty">Lade …</div>`;
+    el.innerHTML = `<div class="empty">Lade …</div>`;
     let exIdx = 0, pick = null;
     const sub = subscribe(st => draw(st));
     function draw(st) {
@@ -324,8 +324,7 @@ export const widgets = {
       const last = st.sessions[0];
       const lastLine = last ? `<p class="t-sub">Zuletzt: ${esc(last.workoutName || "Training")}, ${ago(last.date)}</p>` : "";
       if (!exs.length) {
-        el.innerHTML = `<div class="tile-head"><h2>Training</h2><a href="#training">Öffnen ${icon("chevron-right", { size: 14 })}</a></div>
-          <p class="muted" style="margin:0">${last ? "In den letzten 8 Wochen gibt es keine Werte mit Gewicht." : "Noch keine Einheit eingetragen."}</p>${lastLine}
+        el.innerHTML = `<p class="muted" style="margin:0">${last ? "In den letzten 8 Wochen gibt es keine Werte mit Gewicht." : "Noch keine Einheit eingetragen."}</p>${lastLine}
           <div><button type="button" class="btn small" data-new>${icon("plus", { size: 16 })} Einheit eintragen</button></div>`;
         el.querySelector("[data-new]").onclick = () => { sessionStorage.setItem("tr-open-new", "1"); ctx.navigate("training"); };
         return;
@@ -339,8 +338,8 @@ export const widgets = {
       const h = v => !v ? 8 : hi === lo ? 70 : 28 + 72 * (v - lo) / (hi - lo);
       const curIdx = weeks.lastIndexOf(cur);
       const sign = diff > 0 ? "+" : diff < 0 ? "−" : "±";
-      el.innerHTML = `<div class="tile-head"><h2>Höchstgewicht · 8 Wochen</h2>${exs.length > 1 ? `<button type="button" class="btn small ghost" data-next aria-label="Nächste Übung" style="margin:-8px -10px -8px 0">Übung ${icon("chevron-right", { size: 14 })}</button>` : `<a href="#training">Alle ${icon("chevron-right", { size: 14 })}</a>`}</div>
-        <div><p class="t-title" style="font-size:calc(20px * var(--fs))">${esc(ex.name)}</p><p class="t-sub">${withVal.length > 1 ? `${sign}${fmt(Math.abs(diff))} kg in ${weeks.length - weeks.indexOf(first)} Wochen` : "erste Werte in diesem Zeitraum"}</p></div>
+      el.innerHTML = `<div class="tile-head"><div><p class="t-title">${esc(ex.name)}</p><p class="t-sub">${withVal.length > 1 ? `${sign}${fmt(Math.abs(diff))} kg in ${weeks.length - weeks.indexOf(first)} Wochen` : "erste Werte in diesem Zeitraum"} · Höchstgewicht</p></div>
+        ${exs.length > 1 ? `<button type="button" class="btn small" data-next aria-label="Nächste Übung">Übung ${icon("chevron-right", { size: 14 })}</button>` : ""}</div>
         <div class="minibars" role="img" aria-label="${esc(ex.name)}: ${weeks.map(w => w.value ? fmt(w.value) + " kg" : "keine Einheit").join(", ")}">${weeks.map((w, i) => `<i class="${i === curIdx ? "on" : ""}" style="height:${h(w.value)}%" title="ab ${esc(dateLabel(w.from))}: ${w.value ? fmt(w.value) + " kg" : "keine Einheit"}"></i>`).join("")}</div>
         <div class="minibars-foot"><span>${fmt(first.value)} kg</span><span>${cur.date === today() ? "heute" : esc(ago(cur.date))} <b>${fmt(cur.value)} kg</b></span></div>
         ${lastLine}`;

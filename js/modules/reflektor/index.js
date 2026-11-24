@@ -265,9 +265,8 @@ export const widgets = {
   thought(el, ctx) {
     return tile(el, st => {
       const c = pickToday(st, today());
-      if (!c) { el.innerHTML = `<div class="tile-head"><h2>Gedanke des Tages</h2></div><p class="muted" style="margin:0">Die Karten werden eingerichtet …</p>`; return; }
-      el.innerHTML = `<div class="tile-head"><h2>Gedanke des Tages</h2><a href="#reflektor">Alle Karten</a></div>
-        <div class="stack" style="gap:10px"><h3 style="font-size:calc(20px * var(--fs));margin:0;line-height:1.3">${esc(c.title)}</h3>
+      if (!c) { el.innerHTML = `<p class="muted" style="margin:0">Die Karten werden eingerichtet …</p>`; return; }
+      el.innerHTML = `<div class="stack" style="gap:10px"><h3 style="font-size:calc(20px * var(--fs));margin:0;line-height:1.3">${esc(c.title)}</h3>
         <p class="serif" style="font-size:calc(17px * var(--fs));line-height:1.5">${esc(c.text)}</p>
         <div class="row"><button type="button" class="fav" aria-pressed="${!!c.favorite}" aria-label="${c.favorite ? "Favorit entfernen" : "Als Favorit markieren"}">${icon("heart", { size: 22, fill: !!c.favorite })}</button>
         <button type="button" class="btn small" data-open>Notiz dazu</button></div></div>`;
@@ -279,12 +278,10 @@ export const widgets = {
     return tile(el, st => {
       const d = today(), j = st.journal[d] || {}, g = (j.gratitude || []).filter(x => String(x || "").trim());
       if (g.length) {
-        el.innerHTML = `<div class="tile-head"><h2>Check-in heute</h2><a href="#reflektor">Öffnen</a></div>
-          <ul style="margin:0;padding-left:18px" class="serif">${g.map(t => `<li>${esc(t)}</li>`).join("")}</ul>${j.moment ? `<p class="note">Alltagsmoment: ${esc(j.moment)}</p>` : ""}`;
+        el.innerHTML = `<ul style="margin:0;padding-left:18px" class="serif">${g.map(t => `<li>${esc(t)}</li>`).join("")}</ul>${j.moment ? `<p class="note">Alltagsmoment: ${esc(j.moment)}</p>` : ""}`;
         return;
       }
-      el.innerHTML = `<div class="tile-head"><h2>Check-in heute</h2><a href="#reflektor">Öffnen</a></div>
-        <form class="stack" style="gap:8px">${[0, 1, 2].map(i => `<textarea class="input" rows="1" data-i="${i}" placeholder="${i + 1}. Ich bin dankbar für …" aria-label="Dankbar für ${i + 1}" style="min-height:40px"></textarea>`).join("")}
+      el.innerHTML = `<form class="stack" style="gap:8px">${[0, 1, 2].map(i => `<textarea class="input" rows="1" data-i="${i}" placeholder="${i + 1}. Ich bin dankbar für …" aria-label="Dankbar für ${i + 1}" style="min-height:40px"></textarea>`).join("")}
         <div><button type="submit" class="btn small primary">Speichern</button></div></form>`;
       el.querySelector("form").oninput = e => autoGrow(e.target);
       el.querySelector("form").onsubmit = async e => {
@@ -303,8 +300,7 @@ export const widgets = {
       const m = h % 2 === 0 ? randomMemory(st, d) : null; // gelegentlich, nicht jeden Tag
       el.hidden = !m;
       if (!m) return;
-      el.innerHTML = `<div class="tile-head"><h2>Erinnerung</h2><a href="#reflektor">Rückblick</a></div>
-        <p class="small muted" style="margin:0">${esc(shortDay(m.date))} · ${esc(m.kind)}</p><p class="serif" style="font-size:calc(17px * var(--fs))">${esc(m.text)}</p>`;
+      el.innerHTML = `<p class="small muted" style="margin:0">${esc(shortDay(m.date))} · ${esc(m.kind)}</p><p class="serif" style="font-size:calc(17px * var(--fs))">${esc(m.text)}</p>`;
     });
   }
 };

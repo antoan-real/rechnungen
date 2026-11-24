@@ -106,7 +106,7 @@ export function columnChart(box, { bars, unit = "", height = 200, color = "", la
     bars.forEach((b, i) => {
       const cx = m.l + band * (i + 0.5), x = cx - bw / 2, y = Y(b.value), h = height - m.b - y;
       if (b.value > 0) {
-        const r = Math.min(bw / 2, h / 2);
+        const r = Math.min(4, bw / 2, h / 2);
         el("rect", { x, y, width: bw, height: h, rx: r, ry: r, class: "bar" + (i === bars.length - 1 ? " on" : ""), ...(color ? { style: `fill:${color}` } : {}) }, svg);
       }
       if (i % every === 0 || i === bars.length - 1) el("text", { x: cx, y: height - 8, "text-anchor": "middle", class: "axis-t" }, svg).textContent = b.label;
