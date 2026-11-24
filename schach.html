@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Schachtraining</title>
+<!-- Schachtraining: eine einzige Datei, läuft offline. Fortschritt im Browser (localStorage), Export/Import als Text.
+     Figurenformen nach dem freien Figurensatz von Colin M. L. Burnett (BSD-Lizenz). -->
+<script>
+  // Hell/Dunkel vor dem ersten Zeichnen: gleiche Einstellung wie die Daily-App (db-theme), sonst Gerät
+  try { const t = localStorage.getItem("db-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<style>
+:root {
+  --bg: #F1F0EC; --panel: #FFFFFF; --panel-2: #F6F5F2; --line: #E2E0DA; --ink: #22211F; --muted: #6E6B64;
+  --green: #5E8F32; --green-ink: #FFFFFF; --green-soft: rgba(94, 143, 50, .14);
+  --red: #C8392B; --red-soft: rgba(200, 57, 43, .12); --gold: #B07A10; --blue: #2F6FB0;
+  --sq-light: #EEEED6; --sq-dark: #7A9E5A; --hl: rgba(246, 222, 60, .55); --sel: rgba(20, 85, 30, .5);
+  --radius: 10px; --f: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #262421; --panel: #312E2B; --panel-2: #3A3733; --line: #45413C; --ink: #F0EEE9; --muted: #A9A39A;
+  --green: #7FA650; --green-ink: #FFFFFF; --green-soft: rgba(127, 166, 80, .2); --red: #E5655A; --red-soft: rgba(229, 101, 90, .16);
+  --gold: #E2B04A; --blue: #6FA8E8; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #262421; --panel: #312E2B; --panel-2: #3A3733; --line: #45413C; --ink: #F0EEE9; --muted: #A9A39A;
+  --green: #7FA650; --green-ink: #FFFFFF; --green-soft: rgba(127, 166, 80, .2); --red: #E5655A; --red-soft: rgba(229, 101, 90, .16);
+  --gold: #E2B04A; --blue: #6FA8E8; color-scheme: dark }
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f); font-size: 16px; line-height: 1.45; -webkit-tap-highlight-color: transparent }
+button, input, select, textarea { font: inherit; color: inherit }
+a { color: var(--green) }
+h1 { font-size: 28px; margin: 0 0 4px; line-height: 1.2 }
+h2 { font-size: 20px; margin: 0 0 10px }
+h3 { font-size: 16px; margin: 0 0 6px }
+p { margin: 0 0 10px }
+.muted { color: var(--muted) } .small { font-size: 14px }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 14px 16px 60px }
+
+/* Kopf mit Navigation */
+.top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line) }
+.top-in { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 4px; padding: 6px 12px; overflow-x: auto; scrollbar-width: none }
+.top-in::-webkit-scrollbar { display: none }
+.logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; margin-right: 10px; color: var(--ink); text-decoration: none; white-space: nowrap }
+.logo svg { width: 28px; height: 28px }
+.nav { display: flex; flex-wrap: nowrap }
+@media (max-width: 560px) { .logo-t { display: none } .logo { margin-right: 2px } .nav a { padding: 0 9px } }
+.nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 600; white-space: nowrap; font-size: 15px }
+.nav a:hover { background: var(--panel-2); color: var(--ink) }
+.nav a[aria-current="page"] { background: var(--panel); color: var(--ink) }
+
+/* Bausteine */
+.panel { background: var(--panel); border-radius: var(--radius); padding: 16px; border: 1px solid var(--line) }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)) }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
+.stack { display: flex; flex-direction: column; gap: 12px }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 16px; border-radius: 8px; border: 0; background: var(--panel-2); color: var(--ink); font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap }
+.btn:hover { filter: brightness(.96) }
+.btn.primary { background: var(--green); color: var(--green-ink); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .18) }
+.btn.big { min-height: 54px; font-size: 18px; padding: 10px 22px }
+.btn.small { min-height: 36px; padding: 4px 12px; font-size: 14px }
+.btn.icon { width: 44px; padding: 0 }
+.btn:disabled { opacity: .4; cursor: default }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--panel-2); color: var(--muted); white-space: nowrap }
+.badge.w { background: #FFFFFF; color: #222; border: 1px solid var(--line) } .badge.b { background: #2A2826; color: #EEE }
+.badge.due { background: var(--green-soft); color: var(--green) } .badge.err { background: var(--red-soft); color: var(--red) } .badge.new { background: rgba(47, 111, 176, .14); color: var(--blue) }
+.tabs { display: inline-flex; background: var(--panel-2); border-radius: 9px; padding: 3px; gap: 2px; flex-wrap: wrap }
+.tabs button { border: 0; background: none; padding: 7px 14px; border-radius: 7px; font-weight: 600; color: var(--muted); cursor: pointer; min-height: 38px }
+.tabs button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .12) }
+.bar { height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden } .bar i { display: block; height: 100%; background: var(--green) }
+.input { width: 100%; border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 10px 12px; min-height: 44px }
+textarea.input { min-height: 140px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px }
+.err { color: var(--red); background: var(--red-soft); padding: 8px 12px; border-radius: 8px }
+.ok { color: var(--green); background: var(--green-soft); padding: 8px 12px; border-radius: 8px }
+.hero { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: center }
+@media (min-width: 760px) { .hero { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) } }
+.big-num { font-size: 52px; font-weight: 800; line-height: 1; color: var(--green) }
+.card { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: inherit; cursor: pointer; transition: border-color .15s }
+.card:hover { border-color: var(--green) }
+.card .t { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start }
+.card h3 { margin: 0 }
+.list { display: flex; flex-direction: column }
+.li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); flex-wrap: wrap }
+.li:first-child { border-top: 0 }
+.li .nm { flex: 1 1 220px; min-width: 0 }
+.li .nm small { display: block; color: var(--muted) }
+.soon-tile { opacity: .6; cursor: default }
+.lesson p { line-height: 1.6 }
+footer.note { color: var(--muted); font-size: 13px; margin-top: 30px }
+
+/* Trainer: Brett + Seitenleiste */
+.trainer { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start }
+@media (min-width: 900px) { .trainer { grid-template-columns: minmax(0, 620px) minmax(0, 1fr) } }
+.side { display: flex; flex-direction: column; gap: 12px; min-width: 0 }
+.comment { min-height: 84px; font-size: 16px; line-height: 1.55 }
+.comment b { font-size: 17px }
+.moves { display: flex; flex-wrap: wrap; gap: 2px 4px; max-height: 210px; overflow-y: auto; font-size: 15px }
+.moves .no { color: var(--muted); padding: 3px 0 3px 4px; min-width: 26px; text-align: right }
+.moves button { border: 0; background: none; padding: 3px 6px; border-radius: 5px; cursor: pointer; font-weight: 600 }
+.moves button.cur { background: var(--green); color: var(--green-ink) }
+.moves button.future { color: var(--muted); font-weight: 400 }
+.moves button.hide { visibility: hidden }
+.status { font-weight: 700 }
+.status.good { color: var(--green) } .status.bad { color: var(--red) }
+.ctrl { display: flex; gap: 6px; flex-wrap: wrap }
+.ctrl .btn { flex: 1 1 auto }
+
+/* Brett */
+.board-wrap { width: 100%; max-width: min(620px, calc(100vh - 140px)); margin: 0 auto; touch-action: none; user-select: none; -webkit-user-select: none }
+.board { position: relative; width: 100%; aspect-ratio: 1; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); border-radius: 4px; overflow: hidden; box-shadow: 0 2px 10px rgba(0, 0, 0, .2) }
+.sq { position: relative; background: var(--sq-light) }
+.sq.d { background: var(--sq-dark) }
+.sq.last::before, .sq.from::before { content: ""; position: absolute; inset: 0; background: var(--hl) }
+.sq.selected::before { content: ""; position: absolute; inset: 0; background: var(--sel) }
+.sq.check::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, rgba(230, 30, 20, .9) 0%, rgba(230, 30, 20, .5) 35%, transparent 70%) }
+.sq.wrong::before { content: ""; position: absolute; inset: 0; background: rgba(220, 40, 30, .55) }
+.sq.mark::after { content: ""; position: absolute; inset: 6%; border-radius: 50%; border: 4px solid rgba(220, 90, 20, .85) }
+.sq .dot { position: absolute; left: 50%; top: 50%; width: 30%; height: 30%; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(0, 0, 0, .2); pointer-events: none }
+.sq .ring { position: absolute; inset: 4%; border-radius: 50%; border: 5px solid rgba(0, 0, 0, .2); pointer-events: none }
+.sq .coord { position: absolute; font-size: 11px; font-weight: 700; pointer-events: none; line-height: 1 }
+.sq .coord.f { right: 3px; bottom: 2px } .sq .coord.r { left: 3px; top: 3px }
+.sq .coord { color: var(--sq-dark) } .sq.d .coord { color: var(--sq-light) }
+.pc { position: absolute; inset: 0; background-size: 100% 100%; cursor: grab; z-index: 2 }
+.pc.drag { opacity: .35 }
+.ghost { position: fixed; z-index: 50; pointer-events: none; background-size: 100% 100% }
+.arrows { position: absolute; inset: 0; pointer-events: none; z-index: 3 }
+.board.flash { animation: shake .3s }
+@keyframes shake { 25% { transform: translateX(-5px) } 75% { transform: translateX(5px) } }
+.promo { position: absolute; inset: 0; z-index: 10; background: rgba(0, 0, 0, .5); display: grid; place-items: center }
+.promo div { display: flex; gap: 6px; background: var(--panel); padding: 10px; border-radius: 10px }
+.promo button { width: 64px; height: 64px; border: 0; border-radius: 8px; background: var(--panel-2) center/80% no-repeat; cursor: pointer }
+@media (max-width: 899px) { .wrap.train { padding-left: 8px; padding-right: 8px }
+  /* am Handy: Steuerung und Erklärung direkt unter dem Brett */
+  #t-ctrl { order: -3 } .comment { order: -2 } #t-end { order: -1 } }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <a class="logo" href="#/"><svg viewBox="0 0 45 45" aria-hidden="true"><rect width="45" height="45" rx="10" fill="#5E8F32"/><g transform="translate(4.5 4) scale(.8)" id="logo-knight"></g></svg><span class="logo-t">Schach</span></a>
+  <nav class="nav" id="nav">
+    <a href="#/">Start</a><a href="#/eroeffnungen">Eröffnungen</a><a href="#/eigene">Eigene Kurse</a><a href="#/fortschritt">Fortschritt</a>
+  </nav>
+  <button type="button" class="btn icon" id="theme-btn" style="margin-left:auto;flex:none;background:none" aria-label="Hell/Dunkel umschalten"></button>
+</div></header>
+<main class="wrap" id="app"><p class="muted">Lade …</p></main>
+<script>
+/*ENGINE-START*/
+// Schachregeln: Stellung, vollständige Zuggenerierung (Rochade, en passant, Umwandlung), Schach/Matt/Patt,
+// Remis (dreifache Wiederholung, 50-Züge-Regel, ungenügendes Material), SAN in deutscher und englischer Notation, PGN.
+const Chess = (() => {
+  const FILES = "abcdefgh";
+  const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  const sqName = i => FILES[i & 7] + ((i >> 3) + 1);
+  const sqIndex = s => (s.charCodeAt(1) - 49) * 8 + (s.charCodeAt(0) - 97);
+  const colorOf = p => (p ? (p === p.toUpperCase() ? "w" : "b") : null);
+  const DE = { N: "S", B: "L", R: "T", Q: "D", K: "K" };
+  const FROM_DE = { S: "N", L: "B", T: "R", D: "Q", K: "K", N: "N", B: "B", R: "R", Q: "Q" };
+  const KN = [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2]];
+  const KG = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+  const ROOK = [[1, 0], [-1, 0], [0, 1], [0, -1]], BISHOP = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+  const step = (sq, df, dr) => { const f = (sq & 7) + df, r = (sq >> 3) + dr; return f < 0 || f > 7 || r < 0 || r > 7 ? -1 : r * 8 + f; };
+
+  function fromFEN(fen) {
+    const [b, turn, cast, ep, hm, fm] = fen.trim().split(/\s+/);
+    const board = new Array(64).fill("");
+    const rows = b.split("/");
+    if (rows.length !== 8) throw new Error("FEN: 8 Reihen erwartet");
+    rows.forEach((row, i) => {
+      let f = 0; const r = 7 - i;
+      for (const c of row) {
+        if (/\d/.test(c)) f += +c;
+        else { if (!/[pnbrqkPNBRQK]/.test(c) || f > 7) throw new Error("FEN: ungültiges Zeichen " + c); board[r * 8 + f++] = c; }
+      }
+      if (f !== 8) throw new Error("FEN: Reihe " + (8 - i) + " hat nicht 8 Felder");
+    });
+    if (board.filter(p => p === "K").length !== 1 || board.filter(p => p === "k").length !== 1) throw new Error("FEN: je ein König nötig");
+    return { board, turn: turn === "b" ? "b" : "w", castling: cast && cast !== "-" ? cast : "", ep: ep && ep !== "-" ? sqIndex(ep) : -1, half: +hm || 0, full: +fm || 1 };
+  }
+  function toFEN(p, short) {
+    let s = "";
+    for (let r = 7; r >= 0; r--) {
+      let e = 0;
+      for (let f = 0; f < 8; f++) { const c = p.board[r * 8 + f]; if (!c) e++; else { if (e) s += e; e = 0; s += c; } }
+      if (e) s += e; if (r) s += "/";
+    }
+    // e.p.-Feld nur angeben, wenn ein e.p.-Schlag wirklich möglich ist (für Wiederholungserkennung)
+    let ep = "-";
+    if (p.ep >= 0 && legalMoves(p).some(m => m.flag === "e")) ep = sqName(p.ep);
+    const base = `${s} ${p.turn} ${p.castling || "-"} ${ep}`;
+    return short ? base : `${base} ${p.half} ${p.full}`;
+  }
+  function attacked(p, sq, by) {
+    const B = p.board, up = by === "w" ? -1 : 1; // Bauern greifen von unten (Weiß) bzw. oben (Schwarz) an
+    for (const df of [-1, 1]) { const s = step(sq, df, up); if (s >= 0 && B[s] === (by === "w" ? "P" : "p")) return true; }
+    for (const [df, dr] of KN) { const s = step(sq, df, dr); if (s >= 0 && B[s] === (by === "w" ? "N" : "n")) return true; }
+    for (const [df, dr] of KG) { const s = step(sq, df, dr); if (s >= 0 && B[s] === (by === "w" ? "K" : "k")) return true; }
+    const slide = (dirs, kinds) => {
+      for (const [df, dr] of dirs) {
+        let s = sq;
+        for (;;) { s = step(s, df, dr); if (s < 0) break; const c = B[s]; if (c) { if (colorOf(c) === by && kinds.includes(c.toUpperCase())) return true; break; } }
+      }
+      return false;
+    };
+    return slide(ROOK, "RQ") || slide(BISHOP, "BQ");
+  }
+  const kingSq = (p, c) => p.board.indexOf(c === "w" ? "K" : "k");
+  const inCheck = (p, c = p.turn) => attacked(p, kingSq(p, c), c === "w" ? "b" : "w");
+
+  function pseudo(p) {
+    const B = p.board, us = p.turn, them = us === "w" ? "b" : "w", out = [];
+    const add = (from, to, flag = "", promo = "") => out.push({ from, to, piece: B[from], captured: flag === "e" ? (us === "w" ? "p" : "P") : B[to], flag, promo });
+    for (let sq = 0; sq < 64; sq++) {
+      const pc = B[sq]; if (!pc || colorOf(pc) !== us) continue;
+      const t = pc.toUpperCase();
+      if (t === "P") {
+        const dir = us === "w" ? 1 : -1, startRank = us === "w" ? 1 : 6, lastRank = us === "w" ? 7 : 0;
+        const pushPromo = (to, cap) => { if ((to >> 3) === lastRank) for (const q of "QRBN") add(sq, to, cap ? "c" : "", us === "w" ? q : q.toLowerCase()); else add(sq, to, cap ? "c" : ""); };
+        const one = step(sq, 0, dir);
+        if (one >= 0 && !B[one]) {
+          pushPromo(one, false);
+          const two = step(sq, 0, 2 * dir);
+          if ((sq >> 3) === startRank && !B[two]) add(sq, two, "b");
+        }
+        for (const df of [-1, 1]) {
+          const to = step(sq, df, dir); if (to < 0) continue;
+          if (B[to] && colorOf(B[to]) === them) pushPromo(to, true);
+          else if (to === p.ep) add(sq, to, "e");
+        }
+      } else if (t === "N" || t === "K") {
+        for (const [df, dr] of t === "N" ? KN : KG) { const to = step(sq, df, dr); if (to >= 0 && colorOf(B[to]) !== us) add(sq, to, B[to] ? "c" : ""); }
+        if (t === "K") {
+          const r = us === "w" ? 0 : 56, K = us === "w" ? "K" : "k", Q = us === "w" ? "Q" : "q", rook = us === "w" ? "R" : "r";
+          if (sq === r + 4 && !attacked(p, sq, them)) {
+            if (p.castling.includes(K) && B[r + 7] === rook && !B[r + 5] && !B[r + 6] && !attacked(p, r + 5, them) && !attacked(p, r + 6, them)) add(sq, r + 6, "k");
+            if (p.castling.includes(Q) && B[r] === rook && !B[r + 1] && !B[r + 2] && !B[r + 3] && !attacked(p, r + 3, them) && !attacked(p, r + 2, them)) add(sq, r + 2, "q");
+          }
+        }
+      } else {
+        const dirs = t === "R" ? ROOK : t === "B" ? BISHOP : ROOK.concat(BISHOP);
+        for (const [df, dr] of dirs) {
+          let to = sq;
+          for (;;) { to = step(to, df, dr); if (to < 0) break; if (!B[to]) add(sq, to); else { if (colorOf(B[to]) === them) add(sq, to, "c"); break; } }
+        }
+      }
+    }
+    return out;
+  }
+  function make(p, m) {
+    const B = p.board.slice(), us = p.turn;
+    B[m.to] = m.promo || B[m.from]; B[m.from] = "";
+    if (m.flag === "e") B[m.to + (us === "w" ? -8 : 8)] = "";
+    if (m.flag === "k") { B[m.to - 1] = B[m.to + 1]; B[m.to + 1] = ""; }
+    if (m.flag === "q") { B[m.to + 1] = B[m.to - 2]; B[m.to - 2] = ""; }
+    let c = p.castling;
+    const drop = s => { c = c.replace(s, ""); };
+    if (m.piece === "K") { drop("K"); drop("Q"); } if (m.piece === "k") { drop("k"); drop("q"); }
+    for (const s of [m.from, m.to]) { if (s === 0) drop("Q"); if (s === 7) drop("K"); if (s === 56) drop("q"); if (s === 63) drop("k"); }
+    return {
+      board: B, turn: us === "w" ? "b" : "w", castling: c, ep: m.flag === "b" ? (m.from + m.to) / 2 : -1,
+      half: m.piece.toUpperCase() === "P" || m.captured ? 0 : p.half + 1, full: p.full + (us === "b" ? 1 : 0)
+    };
+  }
+  function legalMoves(p) { return pseudo(p).filter(m => !inCheck(make(p, m), p.turn)); }
+
+  function insufficient(p) {
+    const pcs = []; p.board.forEach((c, i) => { if (c && c.toUpperCase() !== "K") pcs.push([c, i]); });
+    if (!pcs.length) return true;
+    if (pcs.length === 1 && "NBnb".includes(pcs[0][0])) return true;
+    if (pcs.every(([c]) => "Bb".includes(c))) { const col = i => ((i >> 3) + (i & 7)) % 2; return pcs.every(([, i]) => col(i) === col(pcs[0][1])); }
+    return false;
+  }
+
+  function san(p, m, lang = "de") {
+    let s;
+    if (m.flag === "k") s = "O-O";
+    else if (m.flag === "q") s = "O-O-O";
+    else {
+      const t = m.piece.toUpperCase(), cap = !!m.captured;
+      if (t === "P") s = (cap ? FILES[m.from & 7] + "x" : "") + sqName(m.to) + (m.promo ? "=" + (lang === "de" ? DE[m.promo.toUpperCase()] : m.promo.toUpperCase()) : "");
+      else {
+        const others = legalMoves(p).filter(o => o.to === m.to && o.piece === m.piece && o.from !== m.from);
+        let dis = "";
+        if (others.length) {
+          const sameFile = others.some(o => (o.from & 7) === (m.from & 7)), sameRank = others.some(o => (o.from >> 3) === (m.from >> 3));
+          dis = !sameFile ? FILES[m.from & 7] : !sameRank ? String((m.from >> 3) + 1) : sqName(m.from);
+        }
+        s = (lang === "de" ? DE[t] : t) + dis + (cap ? "x" : "") + sqName(m.to);
+      }
+    }
+    const n = make(p, m);
+    if (inCheck(n)) s += legalMoves(n).length ? "+" : "#";
+    return s;
+  }
+  // Zug aus SAN (deutsch oder englisch) finden; null, wenn nicht legal
+  function parseSan(p, text) {
+    let t = String(text).trim().replace(/[+#!?]+$/g, "").replace(/0/g, "O").replace(/e\.?p\.?$/i, "").replace(/[:]/g, "x").trim();
+    if (!t) return null;
+    const moves = legalMoves(p);
+    if (/^O-O(-O)?$/i.test(t)) return moves.find(m => m.flag === (t.length > 3 ? "q" : "k")) || null;
+    // Figurenbuchstaben vereinheitlichen (deutsch → englisch), Umwandlung „e8D“ / „e8=D“
+    let promo = "";
+    const pm = t.match(/=?([SLTDNBRQ])$/);
+    if (pm && /[a-h][18]=?[SLTDNBRQ]$/.test(t)) { promo = FROM_DE[pm[1]]; t = t.replace(/=?[SLTDNBRQ]$/, ""); }
+    let piece = "P";
+    if (/^[KDTLSQRBN]/.test(t)) { piece = FROM_DE[t[0]]; t = t.slice(1); }
+    const mm = t.match(/^([a-h])?([1-8])?x?([a-h][1-8])$/);
+    if (!mm) return null;
+    const [, ff, fr, to] = mm, toSq = sqIndex(to);
+    const cand = moves.filter(m => m.to === toSq && m.piece.toUpperCase() === piece && (!ff || FILES[m.from & 7] === ff) && (!fr || String((m.from >> 3) + 1) === fr)
+      && (promo ? !!m.promo && m.promo.toUpperCase() === promo : !m.promo));
+    // Bauernumwandlung ohne Angabe ist mehrdeutig → nicht akzeptieren
+    if (cand.length === 1) return cand[0];
+    return null;
+  }
+  /** Begründung, warum ein SAN-Zug nicht gespielt werden kann */
+  function whyNot(p, text) {
+    if (!legalMoves(p).length) return "Partie ist bereits zu Ende";
+    const t = String(text).replace(/[+#!?]+$/g, "");
+    const mm = t.match(/^([KDTLSQRBN])?([a-h])?([1-8])?x?([a-h][1-8])/);
+    if (mm) {
+      const piece = mm[1] ? FROM_DE[mm[1]] : "P", to = sqIndex(mm[4]);
+      if (piece === "P" && /[18]$/.test(mm[4]) && !/[a-h][18]=?[SLTDNBRQ]/.test(t)) return "Umwandlungsfigur fehlt (z. B. =D)";
+      const n = legalMoves(p).filter(m => m.to === to && m.piece.toUpperCase() === piece).length;
+      if (n > 1 && !mm[2] && !mm[3]) return "Zug ist mehrdeutig (mehrere Figuren können dorthin ziehen)";
+    }
+    return "Zug ist in dieser Stellung nicht legal";
+  }
+  const uci = m => sqName(m.from) + sqName(m.to) + (m.promo ? m.promo.toLowerCase() : "");
+
+  /** Partieverlauf mit Remis-Erkennung */
+  class Game {
+    constructor(fen = START) { this.start = fen; this.pos = fromFEN(fen); this.history = []; this.keys = [toFEN(this.pos, true)]; }
+    moves() { return legalMoves(this.pos); }
+    play(m) {
+      const s = san(this.pos, m), before = this.pos;
+      this.pos = make(this.pos, m);
+      this.history.push({ move: m, san: s, before, fen: toFEN(this.pos) });
+      this.keys.push(toFEN(this.pos, true));
+      return s;
+    }
+    playSan(text) { const m = parseSan(this.pos, text); if (!m) return null; this.play(m); return m; }
+    undo() { const h = this.history.pop(); if (!h) return null; this.pos = h.before; this.keys.pop(); return h; }
+    repetitions() { const k = this.keys[this.keys.length - 1]; return this.keys.filter(x => x === k).length; }
+    status() {
+      const legal = legalMoves(this.pos).length, chk = inCheck(this.pos);
+      if (!legal) return chk ? { over: true, result: this.pos.turn === "w" ? "0-1" : "1-0", reason: "Schachmatt" } : { over: true, result: "1/2-1/2", reason: "Patt" };
+      if (this.repetitions() >= 3) return { over: true, result: "1/2-1/2", reason: "dreifache Stellungswiederholung" };
+      if (this.pos.half >= 100) return { over: true, result: "1/2-1/2", reason: "50-Züge-Regel" };
+      if (insufficient(this.pos)) return { over: true, result: "1/2-1/2", reason: "ungenügendes Material" };
+      return { over: false, check: chk };
+    }
+  }
+
+  /** PGN lesen: Kopfzeilen, Hauptvariante, Kommentare {…} (an den vorigen Zug gehängt), Nebenvarianten (…) werden übersprungen.
+   *  Liefert { headers, intro, moves: [{ san, comment }], result, error: { ply, token, reason } | null } */
+  function parsePgn(text) {
+    const headers = {};
+    let body = String(text).replace(/\r/g, "").replace(/^\s*\[(\w+)\s+"([^"]*)"\]\s*$/gm, (_, k, v) => { headers[k] = v; return ""; });
+    const fen = headers.FEN || START;
+    let g;
+    try { g = new Game(fen); } catch (e) { return { headers, moves: [], error: { ply: 0, token: "FEN", reason: e.message } }; }
+    const out = { headers, intro: "", moves: [], result: "*", error: null, fen };
+    let i = 0, depth = 0;
+    const push = c => { c = c.trim(); if (!c) return; if (out.moves.length) { const m = out.moves[out.moves.length - 1]; m.comment = m.comment ? m.comment + " " + c : c; } else out.intro = out.intro ? out.intro + " " + c : c; };
+    while (i < body.length) {
+      const ch = body[i];
+      if (ch === "{") { const j = body.indexOf("}", i); const c = body.slice(i + 1, j < 0 ? body.length : j); if (!depth) push(c); i = j < 0 ? body.length : j + 1; continue; }
+      if (ch === ";") { const j = body.indexOf("\n", i); if (!depth) push(body.slice(i + 1, j < 0 ? body.length : j)); i = j < 0 ? body.length : j; continue; }
+      if (ch === "(") { depth++; i++; continue; }
+      if (ch === ")") { depth = Math.max(0, depth - 1); i++; continue; }
+      if (/\s/.test(ch)) { i++; continue; }
+      let j = i; while (j < body.length && !/[\s{}();]/.test(body[j])) j++;
+      const tok = body.slice(i, j); i = j;
+      if (depth) continue;
+      if (/^(1-0|0-1|1\/2-1\/2|½-½|\*)$/.test(tok)) { out.result = tok.replace("½-½", "1/2-1/2"); continue; }
+      if (/^\$\d+$/.test(tok)) continue;
+      const mv = tok.replace(/^\d+\.+/, "");
+      if (!mv) continue;
+      if (out.error) continue;
+      const m = parseSan(g.pos, mv);
+      if (!m) { out.error = { ply: g.history.length, token: tok, reason: whyNot(g.pos, mv) }; continue; }
+      const s = g.play(m);
+      out.moves.push({ san: s, uci: uci(m), comment: "" });
+    }
+    out.game = g;
+    return out;
+  }
+  return { START, FILES, sqName, sqIndex, colorOf, fromFEN, toFEN, legalMoves, make, inCheck, attacked, san, parseSan, uci, Game, parsePgn, insufficient, DE };
+})();
+/*ENGINE-END*/
+/*CONTENT-START*/
+// Eröffnungskurse. Züge in deutscher Kurznotation, Kommentare in {…} gehören zum Zug davor.
+// [Pfeil: c4f7] und [Feld: f7] im Kommentar zeichnen Pfeile bzw. Markierungen aufs Brett.
+const MUSTERPARTIEN = {
+  opera: { title: "Morphy – Herzog von Braunschweig & Graf Isouard", place: "Paris (Oper)", year: 1858,
+    pgn: `1.e4 e5 2.Sf3 d6 {Philidor-Verteidigung: solide, aber passiv.} 3.d4 Lg4? {Der Läufer fesselt, wird aber bald abgetauscht – Weiß gewinnt Zeit.} 4.dxe5 Lxf3 5.Dxf3 dxe5 6.Lc4 {Jetzt droht Matt auf f7. [Pfeil: c4f7, f3f7]} Sf6 7.Db3 {Doppelangriff auf f7 und b7.} De7 8.Sc3 {Morphy entwickelt lieber, statt den Bauern b7 zu nehmen.} c6 9.Lg5 {Fesselt den Springer f6 – Schwarz kann sich kaum noch bewegen.} b5 10.Sxb5! {Ein Opfer, um die Linien zum König zu öffnen.} cxb5 11.Lxb5+ Sbd7 12.O-O-O {Der Turm kommt mit Wucht auf die offene d-Linie.} Td8 13.Txd7 Txd7 14.Td1 {Noch eine Figur greift die Fesselung an.} De6 15.Lxd7+ Sxd7 16.Db8+! {Ein Damenopfer zur Ablenkung des Springers.} Sxb8 17.Td8# {Matt durch Turm und Läufer – ein Lehrstück für Entwicklung und offene Linien.}` },
+  greco: { title: "Greco – NN", place: "Italien", year: 1620,
+    pgn: `1.e4 e5 2.Sf3 Sc6 3.Lc4 Lc5 4.c3 Sf6 5.d4 {Der klassische Zentrumsangriff nach c3.} exd4 6.cxd4 Lb4+ 7.Sc3 Sxe4 8.O-O {Weiß opfert für schnelle Entwicklung.} Sxc3 9.bxc3 Lxc3? {Zu gierig: Schwarz vernachlässigt die Entwicklung.} 10.Db3 {Droht Lxf7+ und greift den Läufer an.} Lxa1 11.Lxf7+ Kf8 12.Lg5 {Alle weißen Figuren greifen an, Schwarz hat kaum etwas entwickelt.} Se7 13.Se5 Lxd4 14.Lg6 d5 15.Df3+ Lf5 16.Lxf5 Lxe5 17.Le6+ Lf6 18.Lxf6 gxf6 19.Dxf6+ Ke8 20.Df7# {Ein frühes Beispiel, wie gefährlich Entwicklungsrückstand und offene Linien sind.}` },
+  evergreen: { title: "Anderssen – Dufresne („Immergrüne Partie“)", place: "Berlin", year: 1852,
+    pgn: `1.e4 e5 2.Sf3 Sc6 3.Lc4 Lc5 4.b4 {Evans-Gambit: Weiß opfert einen Bauern für Tempo und Zentrum.} Lxb4 5.c3 La5 6.d4 exd4 7.O-O d3 8.Db3 Df6 9.e5 Dg6 10.Te1 Sge7 11.La3 {Alle weißen Figuren zielen auf den schwarzen König, der noch in der Mitte steht.} b5 12.Dxb5 Tb8 13.Da4 Lb6 14.Sbd2 Lb7 15.Se4 Df5 16.Lxd3 Dh5 17.Sf6+! {Öffnet die g-Linie.} gxf6 18.exf6 Tg8 19.Tad1! Dxf3 20.Txe7+! Sxe7 21.Dxd7+!! {Das berühmte Damenopfer.} Kxd7 22.Lf5+ {Doppelschach.} Ke8 23.Ld7+ Kf8 24.Lxe7# {Matt mit zwei Läufern – eine der schönsten Angriffspartien.}` },
+  reti: { title: "Réti – Tartakower", place: "Wien", year: 1910,
+    pgn: `1.e4 c6 2.d4 d5 3.Sc3 dxe4 4.Sxe4 Sf6 5.Dd3 e5? {Zu früh geöffnet – der schwarze König steht noch in der Mitte.} 6.dxe5 Da5+ 7.Ld2 Dxe5 8.O-O-O! {Weiß opfert den Springer e4 – die d-Linie ist entscheidend.} Sxe4? 9.Dd8+!! {Ein Damenopfer, um den König auf die d-Linie zu ziehen.} Kxd8 10.Lg5+ {Doppelschach von Läufer und Turm.} Kc7 11.Ld8# {Matt. Die Lehre für Caro-Kann-Spieler: erst entwickeln und rochieren, dann öffnen.}` },
+  rubinstein: { title: "Rotlewi – Rubinstein", place: "Łódź", year: 1907,
+    pgn: `1.d4 d5 2.Sf3 e6 3.e3 c5 4.c4 Sc6 5.Sc3 Sf6 {Ein solider Aufbau mit d5/e6 und dem Hebel ...c5.} 6.dxc5 Lxc5 7.a3 a6 8.b4 Ld6 9.Lb2 O-O 10.Dd2 {Die Dame zieht hier und später noch einmal nach e2 – Weiß verliert Zeit.} De7 11.Ld3 dxc4 12.Lxc4 b5 13.Ld3 Td8 14.De2 Lb7 15.O-O Se5 16.Sxe5 Lxe5 17.f4 Lc7 18.e4 Tac8 19.e5 Lb6+ 20.Kh1 Sg4! {Der Startschuss: alle schwarzen Figuren zielen auf den König.} 21.Le4 Dh4 22.g3 Txc3!! {Ein Turmopfer öffnet die Diagonale des Läufers b7.} 23.gxh4 Td2!! 24.Dxd2 Lxe4+ 25.Dg2 Th3 {Gegen ...Txh2# gibt es keine Verteidigung mehr – Weiß gab auf.} 0-1` }
+};
+
+const COURSES = [
+  /* ===================== Einsteiger (bis ca. 1000) ===================== */
+  { id: "grundsaetze", level: "einsteiger", side: "w", kind: "lesson", title: "Eröffnungsgrundsätze",
+    short: "Zentrum, Entwicklung, Rochade – die drei Regeln, die fast jede Eröffnung erklären.",
+    lesson: [
+      ["1. Das Zentrum besetzen", "Die vier Felder d4, e4, d5 und e5 sind das Herz des Brettes. Figuren im Zentrum erreichen mehr Felder und können schnell auf beide Flügel wechseln. Beginne deshalb meist mit einem Zentrumsbauern (e4 oder d4) und kämpfe um die Mitte, auch wenn du sie nicht direkt besetzt."],
+      ["2. Schnell entwickeln", "Bringe in den ersten Zügen Springer und Läufer ins Spiel – Springer meist vor den Läufern, denn sie haben weniger Auswahl. Ziehe jede Figur möglichst nur einmal, solange noch andere zu Hause stehen. Jeder Zug sollte eine neue Figur aktivieren oder etwas im Zentrum bewirken."],
+      ["3. Den König in Sicherheit bringen", "Rochiere früh, meist kurz. Danach steht der König hinter einer Bauernmauer und der Turm kommt zur Mitte. Ein König, der lange in der Mitte bleibt, wird nach der Öffnung von Linien schnell zum Ziel."],
+      ["4. Die Dame nicht zu früh", "Kommt die Dame früh heraus, kann der Gegner sie mit Entwicklungszügen angreifen und gewinnt dabei Zeit. Sie wird erst stark, wenn die anderen Figuren mitspielen."],
+      ["5. Den Punkt f7 (bzw. f2) im Blick", "Zu Beginn ist f7 nur vom König gedeckt. Viele schnelle Angriffe und Fallen zielen auf dieses Feld. Achte darauf, f7 zu schützen, und nutze es selbst, wenn der Gegner unvorsichtig ist."],
+      ["6. Vor jedem Zug drei Fragen", "Was will mein Gegner mit seinem letzten Zug? Steht eine meiner Figuren ungedeckt? Welche Figur ist bei mir am schlechtesten – wie verbessere ich sie?"]
+    ],
+    games: ["opera"],
+    lines: [
+      { key: "beispiel", name: "Beispiel: so sieht gute Entwicklung aus", pgn: `1.e4 {Ein Zentrumsbauer: öffnet Wege für Dame und Läufer.} e5 2.Sf3 {Entwicklung mit Angriff auf e5.} Sc6 {Schwarz deckt e5 und entwickelt.} 3.Lc4 {Der Läufer zielt auf f7. [Pfeil: c4f7]} Sf6 4.d3 {Deckt e4 und öffnet den Läufer c1.} Lc5 5.O-O {Nach vier Zügen: zwei Figuren entwickelt, König sicher.} d6 6.c3 {Bereitet d4 vor – der Kampf ums Zentrum beginnt.} O-O 7.Te1 {Der Turm kommt hinter den Zentrumsbauern. Beide Seiten haben alle Grundsätze erfüllt.} a6 8.Sbd2 {Auch der letzte Springer kommt ins Spiel.}` }
+    ] },
+
+  { id: "fallen", level: "einsteiger", side: "w", title: "Die häufigsten Anfängerfallen",
+    short: "Schäfermatt abwehren, Narrenmatt, Légal-Matt und die Falle mit ...Sd4.",
+    intro: { ideen: "Fallen funktionieren fast immer nach demselben Muster: Eine Figur wird gierig, der König bleibt ungeschützt oder f7/f2 wird übersehen.", plaene: "Lerne jede Falle von beiden Seiten: wie du sie vermeidest und wie du sie bestrafst, wenn der Gegner hineinläuft.", struktur: "Die Stellungen sind meist offene e-Linien-Strukturen nach 1.e4 e5." },
+    games: ["opera"],
+    lines: [
+      { key: "schaefer", side: "b", name: "Schäfermatt abwehren (2.Dh5 und 3.Lc4)", pgn: `1.e4 e5 2.Dh5 {Die Dame zielt auf f7 und e5. [Pfeil: h5f7]} Sc6 {Deckt e5 und entwickelt.} 3.Lc4 {Jetzt droht Dxf7# mit Unterstützung des Läufers. [Pfeil: c4f7, h5f7]} g6 {Die wichtigste Antwort: vertreibt die Dame und sperrt die Diagonale. Niemals 3...Sf6?? wegen 4.Dxf7#.} 4.Df3 {Neuer Versuch: wieder Druck auf f7.} Sf6 {Deckt f7 ein zweites Mal und entwickelt mit Tempo-Gewinn gegenüber der Dame.} 5.Se2 Lg7 {Der Läufer findet auf g7 einen guten Platz.} 6.Sbc3 d6 {Öffnet den Läufer c8 und festigt e5.} 7.d3 Sd4 {Mit Tempo: Der Springer greift die Dame und c2 an. [Pfeil: d4f3, d4c2]} 8.Sxd4 exd4 9.Sd5 Sxd5 10.Lxd5 c6 {Vertreibt den Läufer – Schwarz steht nach den Grundsätzen bestens.} 11.Lb3 O-O {Alle Figuren entwickelt, König sicher. Die frühe Dame hat Weiß nur Zeit gekostet.}` },
+      { key: "narren", side: "b", name: "Narrenmatt: das schnellste Matt", pgn: `1.f3? {Schwächt die Diagonale e1-h4.} e5 2.g4?? {Öffnet sie vollständig.} Dh4# {Matt in zwei Zügen. Merke: Die f- und g-Bauern schützen den König – ziehe sie nicht leichtfertig. [Pfeil: h4e1]}` },
+      { key: "legal", side: "w", name: "Légal-Matt: die Fesselung, die keine ist", pgn: `1.e4 e5 2.Sf3 d6 3.Lc4 Lg4 {Schwarz fesselt den Springer an die Dame.} 4.Sc3 g6? {Ein Verlustzug: Schwarz entwickelt sich zu langsam.} 5.Sxe5! {Die Fesselung ist nicht absolut – der Springer darf ziehen, auch wenn die Dame hängt.} Lxd1?? {Die Dame zu nehmen verliert sofort. Besser war 5...dxe5 6.Dxg4 mit Bauernverlust.} 6.Lxf7+ Ke7 7.Sd5# {Matt mit drei Leichtfiguren – Läufer, Springer, Springer. [Feld: e7]}` },
+      { key: "sd4", side: "w", name: "Die Falle mit ...Sd4: nicht gierig sein", pgn: `1.e4 e5 2.Sf3 Sc6 3.Lc4 Sd4 {Der Bauer e5 scheint zu hängen.} 4.Sxd4 {Richtig! Gierig wäre 4.Sxe5? Dg5! mit Angriff auf g2 und e5 – nach 5.Sxf7?? Dxg2 6.Tf1 Dxe4+ 7.Le2 Sf3# ist Weiß matt.} exd4 5.O-O {Weiß rochiert; der schwarze Bauer auf d4 wird eher zur Schwäche.} Lc5 6.c3 {Öffnet das Zentrum, solange Schwarz noch nicht rochiert hat.} Sf6 7.cxd4 Lxd4 8.Sc3 {Entwicklung mit Deckung von e4 – Weiß steht deutlich besser entwickelt.}` },
+      { key: "sd4b", side: "b", name: "...Sd4 von der anderen Seite: wenn Weiß zugreift", pgn: `1.e4 e5 2.Sf3 Sc6 3.Lc4 Sd4 4.Sxe5? {Weiß greift gierig zu.} Dg5! {Greift den Springer e5 und den Bauern g2 an. [Pfeil: g5g2, g5e5]} 5.Sxf7?? {Weiß übersieht die Gefahr.} Dxg2 6.Tf1 Dxe4+ {Der Läufer muss dazwischen.} 7.Le2 Sf3# {Erstickt: der König kann nicht weg. Gegen 5.Lxf7+ Ke7 hätte Schwarz ebenfalls gute Chancen.}` }
+    ] },
+
+  { id: "italienisch", level: "einsteiger", side: "w", title: "Italienische Partie (Weiß)",
+    short: "1.e4 e5 2.Sf3 Sc6 3.Lc4 – schnelle Entwicklung mit Blick auf f7.",
+    intro: { ideen: "Weiß entwickelt Springer und Läufer zügig, rochiert früh und richtet den Läufer c4 auf den schwächsten schwarzen Punkt f7.", plaene: "Ruhiger Aufbau mit c3, d3, Te1 und dem Springermanöver Sbd2–f1–g3; später d3–d4 als Zentrumshebel. Gegen Ungenauigkeiten sind auch direkte Angriffe mit Sg5 möglich.", struktur: "Meist e4/d3/c3 gegen e5/d6 – ein geschlossenes, symmetrisches Zentrum, in dem der Hebel d4 (oder f4) entscheidet." },
+    games: ["greco", "evergreen"],
+    lines: [
+      { key: "piano", name: "Giuoco Piano: ruhiger Aufbau mit c3 und d3", pgn: `1.e4 {Besetzt das Zentrum und öffnet Wege für Dame und Läufer f1.} e5 2.Sf3 {Entwicklung mit Angriff auf den Bauern e5.} Sc6 3.Lc4 {Der Läufer zielt auf f7 – den schwächsten Punkt im schwarzen Lager. [Pfeil: c4f7]} Lc5 {Schwarz spiegelt: sein Läufer zielt auf f2.} 4.c3 {Bereitet d4 vor und gibt dem Läufer später den Rückzug nach c2 oder b3.} Sf6 {Greift e4 an.} 5.d3 {Deckt e4 zuverlässig. Weiß baut ruhig auf, statt sofort zu öffnen.} d6 6.O-O {König in Sicherheit, der Turm kommt ins Spiel.} O-O 7.Te1 {Der Turm stellt sich hinter e4 und unterstützt ein späteres d4.} a6 {Schwarz schafft dem Läufer ein Rückzugsfeld.} 8.Lb3 {Weicht vorbeugend Angriffen wie ...Sa5 oder ...d5 aus und bleibt auf der Diagonale a2–g8.} La7 9.Sbd2 {Beginn des typischen Manövers Sd2–f1–g3.} Le6 {Schwarz bietet den Läufertausch an.} 10.Sf1 {Der Springer ist auf dem Weg nach g3, von wo er f5 und h5 kontrolliert.}` },
+      { key: "zweispringer", name: "Zweispringerspiel: solide mit 4.d3", pgn: `1.e4 e5 2.Sf3 Sc6 3.Lc4 Sf6 {Zweispringerspiel: Schwarz greift sofort e4 an.} 4.d3 {Die solide Antwort: e4 ist gedeckt, Weiß entwickelt in Ruhe weiter.} Le7 {Der bescheidenere Platz für den Läufer.} 5.O-O O-O 6.Te1 {Der Turm deckt e4 zusätzlich und bereitet c3 und d4 vor.} d6 7.c3 {Gibt dem Läufer das Feld c2 und bereitet d4 vor.} Sa5 {Schwarz will den starken Läufer abtauschen.} 8.Lb5 {Der Läufer weicht aus und zwingt Schwarz zu Bauernzügen.} a6 9.La4 b5 10.Lc2 {Auf c2 ist der Läufer sicher und zielt weiter auf den Königsflügel. Als nächstes folgen Sbd2 und d4.}` },
+      { key: "sg5", name: "Zweispringerspiel: Angriff mit 4.Sg5", pgn: `1.e4 e5 2.Sf3 Sc6 3.Lc4 Sf6 4.Sg5 {Ein direkter Angriff: Springer und Läufer greifen f7 zweimal an. [Pfeil: g5f7, c4f7]} d5 {Die beste Verteidigung: der Bauer sperrt die Diagonale des Läufers.} 5.exd5 Sa5 {Schwarz nimmt nicht zurück. Nach 5...Sxd5? wäre 6.Sxf7! oder 6.d4 sehr gefährlich.} 6.Lb5+ {Der Läufer weicht mit Schach aus.} c6 7.dxc6 bxc6 8.Le2 {Weiß hat einen Bauern mehr, Schwarz dafür Tempo und aktive Figuren.} h6 {Vertreibt den Springer.} 9.Sf3 e4 {Mit Tempo: der Springer muss erneut ziehen.} 10.Se5 {Zentral und aktiv.} Ld6 11.d4 {Stützt den Springer auf e5 und gewinnt Raum. Jetzt muss Weiß seine Entwicklung nachholen.}` },
+      { key: "philidor", name: "Schwarz spielt 2...d6 (Philidor)", pgn: `1.e4 e5 2.Sf3 d6 {Philidor-Verteidigung: solide, aber passiv.} 3.d4 {Weiß fordert sofort das Zentrum heraus.} exd4 {Schwarz gibt das Zentrum auf.} 4.Sxd4 {Mit Rückeroberung steht der Springer zentral.} Sf6 5.Sc3 {Deckt e4 und entwickelt.} Le7 6.Le2 O-O 7.O-O {Weiß hat mehr Raum und freieres Spiel.} Te8 8.f4 {Gewinnt weiteren Raum im Zentrum und bereitet Lf3 und e5 vor.}` },
+      { key: "falle", name: "Schwarz spielt 3...Sd4: nicht gierig sein", pgn: `1.e4 e5 2.Sf3 Sc6 3.Lc4 Sd4 {Ein Trickzug: der Bauer e5 scheint zu hängen.} 4.Sxd4 {Richtig – nicht 4.Sxe5? Dg5! mit starkem Gegenangriff.} exd4 5.O-O {Weiß rochiert; der Bauer d4 wird eher zur Schwäche.} Lc5 6.c3 {Öffnet das Zentrum, solange Schwarz noch nicht rochiert hat.} Sf6 7.cxd4 Lxd4 8.Sc3 {Entwicklung und Deckung von e4 – Weiß steht klar besser entwickelt.}` }
+    ] },
+
+  { id: "e5schwarz", level: "einsteiger", side: "b", title: "1...e5 gegen 1.e4 (Schwarz)",
+    short: "Klassisch und solide: ...e5, ...Sc6, ...Sf6 gegen alle wichtigen weißen Systeme.",
+    intro: { ideen: "Schwarz hält mit ...e5 seinen Teil des Zentrums, entwickelt die Springer nach c6 und f6 und rochiert schnell.", plaene: "Ausgleich durch ...d6 oder den befreienden Hebel ...d5. Gegen frühe Angriffe auf f7 zuerst verteidigen, dann mit Tempo entwickeln.", struktur: "Symmetrische Strukturen mit e4 gegen e5; oft hängt der Kampf um das Feld d4 bzw. d5 ab." },
+    games: ["opera", "greco"],
+    lines: [
+      { key: "piano", name: "Gegen Italienisch: Giuoco Piano", pgn: `1.e4 e5 {Schwarz beansprucht seinen Teil des Zentrums.} 2.Sf3 Sc6 {Deckt e5 und entwickelt.} 3.Lc4 Lc5 {Aktiver Läufer, der auf f2 zielt.} 4.c3 Sf6 {Greift e4 an – Weiß muss sich um seinen Zentrumsbauern kümmern.} 5.d3 d6 {Stabilisiert e5 und öffnet den Läufer c8.} 6.O-O O-O {Beide Könige sind sicher.} 7.Te1 a6 {Ein Rückzugsfeld für den Läufer, damit er nach d4 nicht abgetauscht wird.} 8.Lb3 La7 {Der Läufer bleibt auf der Diagonale nach f2.} 9.Sbd2 Se7 {Typisches Manöver: der Springer geht über e7 nach g6.} 10.Sf1 Sg6 {Von g6 kontrolliert er f4 und hilft bei der Verteidigung.}` },
+      { key: "sg5", name: "Gegen 4.Sg5 im Zweispringerspiel", pgn: `1.e4 e5 2.Sf3 Sc6 3.Lc4 Sf6 {Greift sofort e4 an.} 4.Sg5 {Weiß zielt mit zwei Figuren auf f7.} d5 {Muss sein: der Bauer sperrt die Diagonale des Läufers.} 5.exd5 Sa5 {Nicht 5...Sxd5? wegen 6.Sxf7! – stattdessen verjagt der Springer den Läufer.} 6.Lb5+ c6 {Mit Tempo gegen den Läufer.} 7.dxc6 bxc6 {Schwarz hat einen Bauern weniger, aber schnelle Entwicklung.} 8.Le2 h6 {Vertreibt den Springer.} 9.Sf3 e4 {Wieder mit Tempo.} 10.Se5 Ld6 {Entwickelt und greift den Springer an.} 11.d4 exd3 {Schlag en passant!} 12.Sxd3 Dc7 {Schwarz hat für den Bauern aktive Figuren und Angriffschancen.}` },
+      { key: "spanisch", name: "Gegen Spanisch (3.Lb5)", pgn: `1.e4 e5 2.Sf3 Sc6 3.Lb5 {Weiß greift den Verteidiger von e5 an.} a6 {Stellt dem Läufer sofort die Frage.} 4.La4 Sf6 {Entwicklung mit Angriff auf e4.} 5.O-O Le7 {Der Läufer macht Platz für die Rochade.} 6.Te1 b5 {Verjagt den Läufer endgültig von der Diagonale.} 7.Lb3 d6 {Festigt e5.} 8.c3 O-O {König in Sicherheit.} 9.h3 Sa5 {Tauscht den gefährlichen Läufer ab oder verdrängt ihn.} 10.Lc2 c5 {Schwarz gewinnt Raum am Damenflügel – ein klassischer Aufbau.}` },
+      { key: "schottisch", name: "Gegen Schottisch (3.d4)", pgn: `1.e4 e5 2.Sf3 Sc6 3.d4 {Weiß öffnet sofort das Zentrum.} exd4 {Schwarz nimmt.} 4.Sxd4 Sf6 {Entwickelt und greift e4 an.} 5.Sxc6 bxc6 {Zur Mitte hin schlagen; die b-Linie wird halboffen.} 6.e5 De7 {Fesselt den Bauern e5 an den König.} 7.De2 Sd5 {Der Springer steht zentral.} 8.c4 La6 {Fesselt den Bauern c4 an die weiße Dame – Schwarz hat aktives Spiel.}` },
+      { key: "schaefer", name: "Gegen 2.Dh5 (Schäfermatt-Versuch)", pgn: `1.e4 e5 2.Dh5 {Die Dame zielt auf f7 und e5.} Sc6 {Deckt e5.} 3.Lc4 g6 {Wichtig: vertreibt die Dame und sperrt die Diagonale. Nicht 3...Sf6?? 4.Dxf7#.} 4.Df3 Sf6 {Deckt f7 ein zweites Mal.} 5.Se2 Lg7 6.Sbc3 d6 7.d3 Sd4 {Mit Tempo gegen Dame und c2.} 8.Sxd4 exd4 9.Sd5 Sxd5 10.Lxd5 c6 {Vertreibt den Läufer.} 11.Lb3 O-O {Schwarz ist voll entwickelt und steht sehr gut.}` }
+    ] },
+
+  { id: "d5e6", level: "einsteiger", side: "b", title: "1...d5 mit ...e6 gegen 1.d4 (Schwarz)",
+    short: "Der klassische, solide Aufbau: d5, e6, Sf6, Le7, kurze Rochade.",
+    intro: { ideen: "Schwarz hält d5 fest mit dem Bauern e6. Das ist sehr stabil, allerdings steht der Läufer c8 hinter den eigenen Bauern.", plaene: "Entwickeln (Sf6, Le7, O-O), dann den Läufer c8 befreien – durch die Hebel ...c5 oder ...e5 oder durch ...b6 und ...Lb7.", struktur: "Häufig entsteht nach cxd5 exd5 die „Carlsbad-Struktur“: Weiß spielt oft den Minoritätsangriff b4–b5, Schwarz sucht Spiel am Königsflügel." },
+    games: ["rubinstein"],
+    lines: [
+      { key: "tartakower", name: "Damengambit: Orthodoxe Variante mit 7...b6", pgn: `1.d4 d5 2.c4 e6 {Schwarz lehnt das Gambit ab und stützt d5.} 3.Sc3 Sf6 4.Lg5 Le7 {Hebt die Fesselung des Springers auf.} 5.e3 O-O 6.Sf3 h6 {Stellt dem Läufer die Frage.} 7.Lh4 b6 {Der Läufer c8 soll über b7 ins Spiel kommen.} 8.cxd5 Sxd5 {Mit dem Springer zurückschlagen, um Figuren zu tauschen.} 9.Lxe7 Dxe7 10.Sxd5 exd5 {Jetzt ist die Diagonale c8–h3 frei.} 11.Tc1 Le6 {Der Problemläufer ist entwickelt – Schwarz steht solide.}` },
+      { key: "london", name: "Gegen das London-System", pgn: `1.d4 d5 2.Lf4 Sf6 3.e3 e6 4.Sf3 c5 {Der wichtigste Hebel: Schwarz greift das Zentrum an.} 5.c3 Sc6 6.Sbd2 Ld6 {Bietet den Tausch des starken weißen Läufers an.} 7.Lg3 O-O 8.Ld3 b6 {Bereitet ...Lb7 vor.} 9.Se5 Lb7 {Beide Seiten sind entwickelt; Schwarz kann mit ...Se7 und ...Sf5 oder ...c4 fortsetzen.}` },
+      { key: "colle", name: "Gegen 2.Sf3 und 3.e3 (Colle-Aufbau)", pgn: `1.d4 d5 2.Sf3 Sf6 3.e3 e6 4.Ld3 c5 {Sofort das Zentrum herausfordern.} 5.b3 Sc6 6.O-O Ld6 7.Lb2 O-O 8.Sbd2 b6 {Der Läufer c8 kommt nach b7 – alle Figuren sind gut entwickelt.}` },
+      { key: "abtausch", name: "Abtauschvariante: die Carlsbad-Struktur", pgn: `1.d4 d5 2.c4 e6 3.Sc3 Sf6 4.cxd5 exd5 {Die Carlsbad-Struktur entsteht.} 5.Lg5 c6 {Stützt d5 und öffnet der Dame die Diagonale nach a5.} 6.e3 Le7 7.Ld3 Sbd7 8.Dc2 O-O 9.Sf3 Te8 {Der Turm auf der halboffenen e-Linie.} 10.O-O Sf8 {Typisches Manöver: der Springer geht nach g6 oder e6 und deckt den Königsflügel.}` },
+      { key: "elefant", name: "Falle: die Elefantenfalle", pgn: `1.d4 d5 2.c4 e6 3.Sc3 Sf6 4.Lg5 Sbd7 {Scheinbar lässt Schwarz d5 im Stich.} 5.cxd5 exd5 6.Sxd5?? {Weiß glaubt, der Springer f6 sei gefesselt.} Sxd5! {Der Springer schlägt trotzdem!} 7.Lxd8 Lb4+ {Zwischenschach – nach Dd2 nimmt Schwarz die Dame zurück.} 8.Dd2 Lxd2+ 9.Kxd2 Kxd8 {Schwarz hat eine Leichtfigur mehr.}` }
+    ] },
+
+  /* ===================== Aufsteiger (ca. 1000–1500) ===================== */
+  { id: "london", level: "aufsteiger", side: "w", title: "London-System (Weiß)",
+    short: "d4, Lf4, e3, Sf3, c3 – ein fester Aufbau, der gegen fast alles funktioniert.",
+    intro: { ideen: "Weiß bringt den Läufer c1 vor e3 nach f4, baut dann eine stabile Pyramide c3–d4–e3 und entwickelt ohne viel Theorie.", plaene: "Typisch sind Se5 mit f4 (Angriff am Königsflügel), der Läuferrückzug nach g3 bzw. h2 gegen ...Sh5 oder ...Ld6, und h3 als Luftloch. Gegen ...c5 und ...Db6 gibt es feste Antworten.", struktur: "Eine feste Kette c3–d4–e3. Weiß hat wenig Schwächen; das Spiel ist ruhig und oft positionell." },
+    games: [],
+    lines: [
+      { key: "klassisch", name: "Gegen ...d5, ...Sf6, ...e6", pgn: `1.d4 d5 2.Lf4 {Der Läufer kommt ins Spiel, bevor e3 ihm den Weg verbaut.} Sf6 3.e3 e6 4.Sf3 Ld6 {Schwarz bietet den Läufertausch an.} 5.Lg3 {Weiß weicht aus. Nach ...Lxg3 hxg3 öffnet sich die h-Linie für den Turm.} O-O 6.Sbd2 c5 7.c3 {Die typische Pyramide c3–d4–e3.} Sc6 8.Ld3 {Der Läufer zielt auf h7. [Pfeil: d3h7]} b6 9.Se5 {Der Springer besetzt das starke Feld e5.} Lb7 10.f4 {Stützt den Springer und bereitet einen Angriff am Königsflügel vor.}` },
+      { key: "db6", name: "Gegen ...c5 und ...Db6", pgn: `1.d4 d5 2.Lf4 c5 {Schwarz greift sofort an.} 3.e3 Sc6 4.c3 {Stützt d4.} Db6 {Greift b2 an. [Pfeil: b6b2]} 5.Db3 {Die einfachste Lösung: Weiß bietet den Damentausch an.} c4 {Schwarz weicht aus und gewinnt Raum.} 6.Dc2 Lf5 {Mit Tempo gegen die Dame.} 7.Dc1 {Die Dame bleibt in der Nähe und deckt b2.} e6 8.Sf3 Sf6 9.Sbd2 {Weiß ist entwickelt und kann später mit e4 oder b3 gegen den Bauern c4 spielen.}` },
+      { key: "kid", name: "Gegen einen Königsindischen Aufbau", pgn: `1.d4 Sf6 2.Lf4 g6 3.e3 Lg7 4.Sf3 O-O 5.Le2 {Bescheiden, aber solide.} d6 6.h3 {Schafft dem Läufer das Feld h2 und verhindert ...Sh5 und ...Lg4.} c5 7.c3 {Hält d4.} Sc6 8.O-O {Weiß ist fertig entwickelt und kann je nach Lage mit a4, Sbd2 oder Lh2 fortsetzen.}` }
+    ] },
+
+  { id: "carokann", level: "aufsteiger", side: "b", title: "Caro-Kann (Schwarz gegen 1.e4)",
+    short: "1...c6 und 2...d5 – solide, mit einem gut entwickelten Läufer c8.",
+    intro: { ideen: "Mit ...c6 bereitet Schwarz ...d5 vor, ohne den Läufer c8 einzusperren. Dieser Läufer kommt meist vor ...e6 nach f5 oder g4.", plaene: "Feste Bauernstruktur, gute Endspiele, Gegenspiel mit ...c5 oder ...e5. In der Vorstoßvariante greift Schwarz die weiße Kette mit ...c5 und ...Sc6 an.", struktur: "Oft c6/e6 gegen d4 – Schwarz hat eine feste Stellung ohne Schwächen, Weiß etwas mehr Raum." },
+    games: ["reti"],
+    lines: [
+      { key: "klassisch", name: "Klassische Variante (3.Sc3 dxe4 4.Sxe4 Lf5)", pgn: `1.e4 c6 {Bereitet ...d5 vor.} 2.d4 d5 3.Sc3 dxe4 4.Sxe4 Lf5 {Der Läufer kommt vor ...e6 heraus – das ist die Idee des Caro-Kann.} 5.Sg3 Lg6 6.h4 {Weiß droht h5 und will den Läufer fangen.} h6 {Gibt dem Läufer das Rückzugsfeld h7.} 7.Sf3 Sd7 {Verhindert Se5.} 8.h5 Lh7 9.Ld3 Lxd3 {Tausch des wichtigsten weißen Angriffsläufers.} 10.Dxd3 e6 11.Ld2 Sgf6 12.O-O-O Le7 {Schwarz rochiert meist kurz und spielt später ...c5 – eine feste, gesunde Stellung.}` },
+      { key: "vorstoss", name: "Vorstoßvariante (3.e5)", pgn: `1.e4 c6 2.d4 d5 3.e5 {Weiß gewinnt Raum.} Lf5 {Der Läufer kommt vor der Bauernkette heraus.} 4.Sf3 e6 5.Le2 Sd7 {Der Springer geht später nach b6 oder stützt ...c5.} 6.O-O Se7 {Von e7 kann der Springer nach g6 oder c6.} 7.Sbd2 c5 {Der typische Hebel gegen die weiße Kette.} 8.c3 Sc6 {Schwarz greift d4 an – ein Plan, den du dir merken solltest.}` },
+      { key: "abtausch", name: "Abtauschvariante (3.exd5)", pgn: `1.e4 c6 2.d4 d5 3.exd5 cxd5 {Symmetrische Bauernstruktur.} 4.Ld3 Sc6 5.c3 Sf6 6.Lf4 Lg4 {Der Läufer kommt aktiv ins Spiel, bevor ...e6 ihn einsperrt.} 7.Db3 {Greift b7 an.} Dd7 {Deckt b7 und verbindet die Figuren.} 8.Sd2 e6 9.Sgf3 Ld6 10.Lxd6 Dxd6 {Ausgeglichen: Schwarz plant den Minoritätsangriff mit ...b5–b4.}` },
+      { key: "panov", name: "Panov-Angriff (4.c4)", pgn: `1.e4 c6 2.d4 d5 3.exd5 cxd5 4.c4 {Weiß spielt um Initiative und nimmt einen isolierten Bauern in Kauf.} Sf6 5.Sc3 e6 6.Sf3 Le7 7.cxd5 Sxd5 {Der Springer blockiert das Feld vor dem isolierten Bauern.} 8.Ld3 Sc6 9.O-O O-O 10.Te1 {Weiß hat aktive Figuren, Schwarz greift später den isolierten Bauern d4 an. [Feld: d4]}` }
+    ] },
+
+  { id: "qgd", level: "aufsteiger", side: "b", title: "Damengambit abgelehnt (Schwarz gegen 1.d4)",
+    short: "Hauptvarianten mit ...e6: Orthodox, 5.Lf4 und die Abtauschvariante.",
+    intro: { ideen: "Schwarz verteidigt d5 mit ...e6, entwickelt Sf6, Le7 und rochiert. Die Stellung ist fest; die Kunst ist, den Läufer c8 zu befreien.", plaene: "Befreiungshebel ...c5 oder ...e5 (Capablancas Manöver: ...dxc4, ...Sd5 und ...e5), alternativ ...b6/...Lb7. In der Abtauschvariante: Springer über f8 nach g6/e6 und Spiel am Königsflügel.", struktur: "Carlsbad-Struktur (nach cxd5 exd5) oder offene Stellungen mit isoliertem Bauern nach ...c5." },
+    games: ["rubinstein"],
+    lines: [
+      { key: "orthodox", name: "Orthodox: Capablancas Befreiung mit ...e5", pgn: `1.d4 d5 2.c4 e6 3.Sc3 Sf6 4.Lg5 Le7 5.e3 O-O 6.Sf3 Sbd7 {Der Springer unterstützt später ...e5 oder ...c5.} 7.Tc1 c6 {Stützt d5 und macht ...dxc4 mit ...Sd5 möglich.} 8.Ld3 dxc4 9.Lxc4 Sd5 {Tauscht Figuren ab und befreit die Stellung.} 10.Lxe7 Dxe7 11.O-O Sxc3 12.Txc3 e5 {Der Befreiungsschlag: der Läufer c8 bekommt Luft. [Pfeil: c8g4]}` },
+      { key: "lf4", name: "Gegen 5.Lf4", pgn: `1.d4 d5 2.c4 e6 3.Sc3 Sf6 4.Sf3 Le7 5.Lf4 {Der Läufer steht aktiver als auf g5.} O-O 6.e3 c5 {Der typische Hebel gegen das Zentrum.} 7.dxc5 Lxc5 8.Dc2 Sc6 9.a3 Da5 {Die Dame wird aktiv und fesselt den Springer c3 – ein Hauptweg mit Gegenspiel.}` },
+      { key: "abtausch", name: "Abtauschvariante mit Sge2", pgn: `1.d4 d5 2.c4 e6 3.Sc3 Sf6 4.cxd5 exd5 5.Lg5 c6 6.Dc2 Le7 7.e3 Sbd7 8.Ld3 O-O 9.Sge2 {Weiß hält sich die Möglichkeit f3 und e4 offen.} Te8 10.O-O Sf8 {Der Springer kommt nach g6 oder e6 und verstärkt den Königsflügel.}` }
+    ] },
+
+  { id: "skandi", level: "aufsteiger", side: "b", title: "Skandinavisch (Alternative gegen 1.e4)",
+    short: "1...d5 – sofort das Zentrum herausfordern, klare Pläne.",
+    intro: { ideen: "Schwarz öffnet sofort mit 1...d5. Nach 2.exd5 nimmt meist die Dame zurück; sie geht nach a5 oder d6 und ist dort sicher genug.", plaene: "Schnelle Entwicklung mit ...Sf6, ...c6, ...Lf5 (Läufer vor ...e6!) und kurzer Rochade. Alternativ ...Sf6 statt ...Dxd5 mit Fianchetto-Aufbau.", struktur: "Oft c6/e6 gegen d4 – ähnlich wie im Caro-Kann, aber mit früh entwickelter Dame." },
+    games: [],
+    lines: [
+      { key: "da5", name: "Hauptvariante mit 3...Da5", pgn: `1.e4 d5 2.exd5 Dxd5 3.Sc3 {Mit Tempo gegen die Dame.} Da5 {Auf a5 steht die Dame sicher und fesselt manchmal den Springer.} 4.d4 Sf6 5.Sf3 c6 {Gibt der Dame ein Rückzugsfeld und stärkt d5.} 6.Lc4 Lf5 {Der Läufer kommt vor ...e6 heraus.} 7.Ld2 e6 8.De2 Lb4 {Fesselt den Springer – Schwarz steht gut entwickelt.}` },
+      { key: "sf6", name: "Moderne Variante mit 2...Sf6", pgn: `1.e4 d5 2.exd5 Sf6 {Schwarz nimmt den Bauern später mit dem Springer zurück.} 3.d4 Sxd5 4.Sf3 g6 {Fianchetto: der Läufer drückt von g7 auf d4.} 5.Le2 Lg7 6.O-O O-O 7.c4 {Weiß gewinnt Raum mit Tempo.} Sb6 8.Sc3 {Schwarz wird später mit ...Sc6 und ...Lg4 gegen d4 spielen.}` }
+    ] }
+];
+/*CONTENT-END*/
+/*APP-START*/
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const LEVELS = [
+  { id: "einsteiger", name: "Einsteiger", elo: "bis ca. 1000" },
+  { id: "aufsteiger", name: "Aufsteiger", elo: "ca. 1000–1500" },
+  { id: "fortgeschritten", name: "Fortgeschrittene", elo: "ca. 1500–1900", soon: "Etappe 4" },
+  { id: "stark", name: "Stark", elo: "ab ca. 1900", soon: "Etappe 4" }
+];
+const SIDE = { w: "Weiß", b: "Schwarz" };
+
+/* ---------- Figuren (SVG, eingebaut) ---------- */
+const PIECE_SVG = (() => {
+  const W = { fill: "#fafafa", stroke: "#1d1d1d", detail: "#1d1d1d" }, B = { fill: "#262626", stroke: "#0c0c0c", detail: "#e8e8e8" };
+  const P = {
+    p: c => `<path d="M22.5 9.5a5 5 0 0 0-3.2 8.8c-2.4 1.4-4 3.9-4 6.8 0 2.5 1.2 4.7 3 6.1-3.4 1.4-6.3 4.7-6.8 9.3h22c-.5-4.6-3.4-7.9-6.8-9.3 1.8-1.4 3-3.6 3-6.1 0-2.9-1.6-5.4-4-6.8a5 5 0 0 0-3.2-8.8z" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" stroke-linejoin="round"/>`,
+    r: c => `<g fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" stroke-linejoin="round"><path d="M9.5 39.5h26v-4h-26z"/><path d="M12.5 35.5l1.5-4h17l1.5 4z"/><path d="M14 31.5V17h17v14.5z"/><path d="M11 17l3-3h17l3 3z"/><path d="M11 14V9h4v2.5h5V9h5v2.5h5V9h4v5z"/></g><path d="M14 17h17M14 31.5h17" stroke="${c.detail}" stroke-width="1" fill="none"/>`,
+    b: c => `<g fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" stroke-linejoin="round"><path d="M9 39.5c3.4-1 10-.4 13.5-2.5 3.5 2.1 10.1 1.5 13.5 2.5 0 0 1.6.5 3 2-.7 1-1.6 1-3 .5-3.4-1-10.1.5-13.5-1-3.4 1.5-10.1 0-13.5 1-1.4.5-2.3.5-3-.5 1.4-1.9 3-2 3-2z"/><path d="M15 35.5c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><circle cx="22.5" cy="10.5" r="2.5"/></g><path d="M17.5 29.5h10M15 33.5h15M22.5 17.5v5M20 20h5" stroke="${c.detail}" stroke-width="1.5" stroke-linecap="round" fill="none"/>`,
+    n: c => `<g fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" stroke-linejoin="round"><path d="M22 10c10.5 1 16.5 8 16 29H15c0-9 10-6.5 8-21"/><path d="M24 18c.4 2.9-5.5 7.4-8 9-3 2-2.8 4.3-5 4-1-.9 1.4-3 0-3-1 0 .2 1.2-1 2-1 0-4 1-4-4 0-2 6-12 6-12s1.9-1.9 2-3.5c-.7-1-.5-2-.5-3 1-1 3 2.5 3 2.5h2s.8-2 2.5-3c1 0 1 3 1 3"/></g><circle cx="12" cy="25.5" r=".9" fill="${c.detail}"/><path d="M15 15.5c-.4 1-1.3 1.6-2 2" stroke="${c.detail}" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
+    q: c => `<g fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" stroke-linejoin="round"><path d="M9 26c8.5-1.5 21-1.5 27 0l2.5-12.5L31 25l-.3-14.1-5.2 13.6-3-14.5-3 14.5-5.2-13.6L14 25 6.5 13.5z"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1 2.5-1 2.5-1.5 1.5 0 2.5 0 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z"/><circle cx="6" cy="12" r="2"/><circle cx="14" cy="9" r="2"/><circle cx="22.5" cy="8" r="2"/><circle cx="31" cy="9" r="2"/><circle cx="39" cy="12" r="2"/></g><path d="M11.5 30c3.5-1 18.5-1 22 0M12 33.5c6-1 15-1 21 0" stroke="${c.detail}" stroke-width="1" fill="none"/>`,
+    k: c => `<path d="M22.5 11.6V6M20 8h5" stroke="${c.stroke}" stroke-width="1.5" stroke-linecap="round" fill="none"/><g fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" stroke-linejoin="round"><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5"/><path d="M12.5 37c5.5 3.5 14.5 3.5 20 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-2.5-7.5-12-10.5-16-4-3 6 6 10.5 6 10.5v7"/></g><path d="M12.5 30c5.5-3 14.5-3 20 0M12.5 33.5c5.5-3 14.5-3 20 0M12.5 37c5.5-3 14.5-3 20 0" stroke="${c.detail}" stroke-width="1" fill="none"/>`
+  };
+  const out = {};
+  for (const t of "pnbrqk") { out[t.toUpperCase()] = P[t](W); out[t] = P[t](B); }
+  return out;
+})();
+const pieceUrl = (() => {
+  const cache = {};
+  // einfache Anführungszeichen, weil die Adresse in style="…" steht
+  return pc => cache[pc] || (cache[pc] = `url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45">${PIECE_SVG[pc]}</svg>`).replace(/'/g, "%27")}')`);
+})();
+
+/* ---------- Speicher (lokal, abgesichert) ---------- */
+const STORE_KEY = "schach-v1";
+const Store = {
+  data: null,
+  load() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch (e) { d = null; }
+    this.data = Object.assign({ version: 1, srs: {}, own: [], days: {}, level: "einsteiger", stats: { quizOk: 0, quizFail: 0 } }, d || {});
+    return this.data;
+  },
+  save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(this.data)); return true; } catch (e) { toast("Speichern im Browser nicht möglich (privater Modus?). Nutze Export, um den Fortschritt zu sichern."); return false; } }
+};
+
+/* ---------- Datum ---------- */
+const isoDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDays = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); return isoDay(new Date(y, m - 1, d + n)); };
+const fmtDay = iso => { const [y, m, d] = iso.split("-"); return `${d}.${m}.${y}`; };
+const relDay = iso => { const t = isoDay(); if (iso <= t) return "heute"; if (iso === addDays(t, 1)) return "morgen"; return "am " + fmtDay(iso); };
+
+/* ---------- Wiederholung in Abständen ---------- */
+const INTERVALS = [1, 3, 7, 14, 30]; // Tage: 1 Tag, 3 Tage, 1 Woche, 2 Wochen, 1 Monat
+const SRS = {
+  get: id => Store.data.srs[id] || null,
+  isDue(id) { const s = this.get(id); return !!s && s.learned && s.due <= isoDay(); },
+  learned(id) {
+    const s = this.get(id) || { box: 0, reps: 0, lapses: 0 };
+    if (!s.learned) Object.assign(s, { learned: true, box: 0, due: isoDay() });
+    Store.data.srs[id] = s; touchDay(); Store.save();
+  },
+  /** Abfrage-Ergebnis: fehlerfrei → nächste Stufe; mit Fehlern → zurück auf Stufe 1, morgen wieder */
+  result(id, ok) {
+    const s = this.get(id) || { box: 0, reps: 0, lapses: 0, learned: true };
+    s.learned = true; s.reps = (s.reps || 0) + 1; s.last = isoDay();
+    if (ok) { const box = Math.min(s.box || 0, INTERVALS.length - 1); s.due = addDays(isoDay(), INTERVALS[box]); s.box = Math.min(box + 1, INTERVALS.length - 1); Store.data.stats.quizOk++; }
+    else { s.box = 0; s.due = addDays(isoDay(), 1); s.lapses = (s.lapses || 0) + 1; Store.data.stats.quizFail++; }
+    Store.data.srs[id] = s; touchDay(); Store.save();
+    return s;
+  },
+  label(id) {
+    const s = this.get(id);
+    if (!s || !s.learned) return { cls: "new", text: "Neu" };
+    if (s.due <= isoDay()) return { cls: "due", text: "Heute fällig" };
+    return { cls: "", text: `Stufe ${Math.min((s.box || 0) + 1, INTERVALS.length)} · ${relDay(s.due)}` };
+  }
+};
+function touchDay() { const d = isoDay(); Store.data.days[d] = (Store.data.days[d] || 0) + 1; }
+function streak() { let n = 0, d = isoDay(); if (!Store.data.days[d]) d = addDays(d, -1); while (Store.data.days[d]) { n++; d = addDays(d, -1); } return n; }
+
+/* ---------- Inhalte sammeln und prüfen ---------- */
+const Content = {
+  lines: new Map(), games: new Map(), errors: [],
+  build() {
+    this.lines.clear(); this.games.clear(); this.errors = [];
+    const addLine = (course, l, prefix) => {
+      const id = `${prefix}${course.id}:${l.key}`, side = l.side || course.side;
+      const parsed = Chess.parsePgn(l.pgn);
+      const entry = { id, course, line: l, side, parsed, error: parsed.error ? `Zug ${Math.floor(parsed.error.ply / 2) + 1}${parsed.error.ply % 2 ? "…" : "."} ${parsed.error.token}: ${parsed.error.reason}` : null };
+      if (!entry.error && !parsed.moves.length) entry.error = "Keine Züge gefunden";
+      if (entry.error) this.errors.push({ where: `${course.title} – ${l.name}`, msg: entry.error });
+      this.lines.set(id, entry);
+    };
+    for (const c of COURSES) for (const l of c.lines) addLine(c, l, "");
+    for (const c of Store.data.own) for (const l of c.lines) addLine(Object.assign({ own: true, level: "eigene" }, c), l, "own-");
+    for (const [k, g] of Object.entries(MUSTERPARTIEN)) {
+      const parsed = Chess.parsePgn(g.pgn);
+      const entry = { id: k, game: g, parsed, error: parsed.error ? `Zug ${Math.floor(parsed.error.ply / 2) + 1} ${parsed.error.token}: ${parsed.error.reason}` : null };
+      if (entry.error) this.errors.push({ where: `Musterpartie ${g.title}`, msg: entry.error });
+      this.games.set(k, entry);
+    }
+  },
+  ofCourse(c) { return c.lines.map(l => this.lines.get(`${c.own ? "own-" : ""}${c.id}:${l.key}`)).filter(Boolean); },
+  due() { return [...this.lines.values()].filter(e => !e.error && SRS.isDue(e.id)); },
+  courseById(id) { return COURSES.find(c => c.id === id) || (Store.data.own.find(c => c.id === id) && Object.assign({ own: true, level: "eigene" }, Store.data.own.find(c => c.id === id))); }
+};
+
+/* ---------- Kleine Helfer ---------- */
+function toast(msg) {
+  let t = $("#toast");
+  if (!t) { t = document.createElement("div"); t.id = "toast"; t.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;z-index:99;max-width:90vw;font-size:15px"; document.body.appendChild(t); }
+  t.textContent = msg; t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; }, 3200);
+}
+const ICON = {
+  first: '<path d="M6 5v14M18 6l-7 6 7 6z"/>', prev: '<path d="M15 6l-7 6 7 6z"/>', next: '<path d="M9 6l7 6-7 6z"/>', last: '<path d="M18 5v14M6 6l7 6-7 6z"/>',
+  flip: '<path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/>'
+};
+const icon = n => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
+/** Kommentar: Markierungen [Pfeil: …] und [Feld: …] herauslösen */
+function parseComment(c) {
+  const arrows = [], marks = [];
+  const text = String(c || "").replace(/\[(Pfeil|Feld):\s*([^\]]*)\]/g, (_, k, v) => {
+    v.split(",").map(s => s.trim()).filter(Boolean).forEach(t => { if (k === "Pfeil" && /^[a-h][1-8][a-h][1-8]$/.test(t)) arrows.push([t.slice(0, 2), t.slice(2, 4)]); if (k === "Feld" && /^[a-h][1-8]$/.test(t)) marks.push(t); });
+    return "";
+  }).replace(/\s+/g, " ").trim();
+  return { text, arrows, marks };
+}
+const moveNo = (ply, startTurn = "w") => { const p = ply + (startTurn === "b" ? 1 : 0); return Math.floor(p / 2) + 1; };
+
+/* ---------- Brett: Klicken oder Ziehen, drehbar, Pfeile, Markierungen, letzter Zug ---------- */
+const ARROW_COLORS = { idea: "rgba(230,120,20,.85)", hint: "rgba(40,120,220,.85)", bad: "rgba(210,50,40,.85)" };
+class Board {
+  constructor(host, opts = {}) {
+    this.host = host; this.orientation = opts.orientation || "w"; this.onMove = opts.onMove || (() => false);
+    this.movable = null; this.pos = Chess.fromFEN(Chess.START); this.last = null; this.arrows = []; this.marks = []; this.sel = -1;
+    host.innerHTML = `<div class="board-wrap"><div class="board" aria-label="Schachbrett"></div></div>`;
+    this.el = $(".board", host);
+    this.el.addEventListener("pointerdown", e => this.down(e));
+    this.render();
+  }
+  setPosition(pos, last = null) { this.pos = pos; this.last = last; this.sel = -1; this.render(); }
+  setOrientation(c) { this.orientation = c; this.render(); }
+  flip() { this.setOrientation(this.orientation === "w" ? "b" : "w"); }
+  setArrows(a) { this.arrows = a || []; this.drawArrows(); }
+  setMarks(m) { this.marks = m || []; this.render(); }
+  setMovable(color) { this.movable = color; this.sel = -1; this.render(); }
+  sqAt(vi) { const r = Math.floor(vi / 8), f = vi % 8; return this.orientation === "w" ? (7 - r) * 8 + f : r * 8 + (7 - f); }
+  viewOf(sq) { const r = sq >> 3, f = sq & 7; return this.orientation === "w" ? (7 - r) * 8 + f : r * 8 + (7 - f); }
+  legalFrom(sq) { if (!this.movable || this.pos.turn !== this.movable) return []; return Chess.legalMoves(this.pos).filter(m => m.from === sq); }
+  render() {
+    const P = this.pos, checkSq = Chess.inCheck(P) ? P.board.indexOf(P.turn === "w" ? "K" : "k") : -1;
+    const targets = this.sel >= 0 ? this.legalFrom(this.sel) : [];
+    let h = "";
+    for (let vi = 0; vi < 64; vi++) {
+      const sq = this.sqAt(vi), r = sq >> 3, f = sq & 7, dark = (r + f) % 2 === 0;
+      const cls = ["sq", dark ? "d" : "", this.last && (sq === this.last[0] || sq === this.last[1]) ? "last" : "", sq === this.sel ? "selected" : "",
+        sq === checkSq ? "check" : "", this.marks.includes(Chess.sqName(sq)) ? "mark" : ""].filter(Boolean).join(" ");
+      const pc = P.board[sq], t = targets.find(m => m.to === sq);
+      const vr = Math.floor(vi / 8), vf = vi % 8;
+      h += `<div class="${cls}" data-sq="${sq}">${vr === 7 ? `<span class="coord f">${Chess.FILES[f]}</span>` : ""}${vf === 0 ? `<span class="coord r">${r + 1}</span>` : ""}` +
+        `${pc ? `<div class="pc" style="background-image:${pieceUrl(pc)}"></div>` : ""}${t ? (pc ? '<span class="ring"></span>' : '<span class="dot"></span>') : ""}</div>`;
+    }
+    this.el.innerHTML = h + `<svg class="arrows" viewBox="0 0 8 8" aria-hidden="true"></svg>`;
+    this.drawArrows();
+  }
+  drawArrows() {
+    const svg = $(".arrows", this.el); if (!svg) return;
+    const c = sq => { const v = this.viewOf(Chess.sqIndex(sq)); return [v % 8 + 0.5, Math.floor(v / 8) + 0.5]; };
+    const defs = Object.entries(ARROW_COLORS).map(([k, col]) =>
+      `<marker id="ah-${k}" markerWidth="3" markerHeight="3" refX="1.4" refY="1.5" orient="auto" markerUnits="strokeWidth"><path d="M0 0L3 1.5L0 3z" fill="${col}"/></marker>`).join("");
+    svg.innerHTML = `<defs>${defs}</defs>` + this.arrows.map(([a, b, kind = "idea"]) => {
+      const [x1, y1] = c(a), [x2, y2] = c(b), d = Math.hypot(x2 - x1, y2 - y1), k = (d - 0.38) / d;
+      return `<line x1="${x1}" y1="${y1}" x2="${x1 + (x2 - x1) * k}" y2="${y1 + (y2 - y1) * k}" stroke="${ARROW_COLORS[kind] || ARROW_COLORS.idea}" stroke-width=".17" stroke-linecap="round" marker-end="url(#ah-${kind})"/>`;
+    }).join("");
+  }
+  flashWrong(from, to) {
+    this.el.classList.remove("flash"); void this.el.offsetWidth; this.el.classList.add("flash");
+    for (const sq of [from, to]) { const n = $(`[data-sq="${sq}"]`, this.el); if (n) { n.classList.add("wrong"); setTimeout(() => n.classList.remove("wrong"), 700); } }
+  }
+  down(e) {
+    const cell = e.target.closest(".sq"); if (!cell || $(".promo", this.el)) return;
+    const sq = +cell.dataset.sq;
+    if (this.sel >= 0 && this.legalFrom(this.sel).some(m => m.to === sq)) { this.tryMove(this.sel, sq); return; }
+    if (!this.legalFrom(sq).length) { if (this.sel >= 0) { this.sel = -1; this.render(); } return; }
+    e.preventDefault();
+    this.sel = sq; this.render();
+    // Ziehen mit Maus oder Finger
+    const size = this.el.getBoundingClientRect().width / 8;
+    let ghost = null, moved = false;
+    const startX = e.clientX, startY = e.clientY;
+    const onMove = ev => {
+      if (!moved && Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+      if (!ghost) {
+        ghost = document.createElement("div"); ghost.className = "ghost";
+        ghost.style.cssText = `width:${size}px;height:${size}px;background-image:${pieceUrl(this.pos.board[sq])}`;
+        document.body.appendChild(ghost);
+        $(`[data-sq="${sq}"] .pc`, this.el)?.classList.add("drag");
+      }
+      moved = true; ghost.style.left = ev.clientX - size / 2 + "px"; ghost.style.top = ev.clientY - size / 2 + "px";
+    };
+    const onUp = ev => {
+      document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); document.removeEventListener("pointercancel", onUp);
+      if (ghost) ghost.parentNode.removeChild(ghost);
+      if (!moved) return;
+      const t = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".sq");
+      if (t && this.el.contains(t) && +t.dataset.sq !== sq && this.legalFrom(sq).some(m => m.to === +t.dataset.sq)) this.tryMove(sq, +t.dataset.sq);
+      else this.render();
+    };
+    document.addEventListener("pointermove", onMove); document.addEventListener("pointerup", onUp); document.addEventListener("pointercancel", onUp);
+  }
+  async tryMove(from, to) {
+    const cands = this.legalFrom(from).filter(m => m.to === to);
+    let m = cands[0];
+    if (cands.length > 1) m = await this.askPromo(cands);
+    this.sel = -1;
+    if (!m) { this.render(); return; }
+    if (!this.onMove(m)) this.render();
+  }
+  askPromo(cands) {
+    return new Promise(res => {
+      const d = document.createElement("div"); d.className = "promo";
+      const names = { Q: "Dame", R: "Turm", B: "Läufer", N: "Springer" };
+      d.innerHTML = `<div>${cands.map((m, i) => `<button type="button" data-i="${i}" aria-label="${names[m.promo.toUpperCase()]}" style="background-image:${pieceUrl(m.promo)}"></button>`).join("")}</div>`;
+      d.onclick = e => { const b = e.target.closest("[data-i]"); d.parentNode.removeChild(d); res(b ? cands[+b.dataset.i] : null); };
+      this.el.appendChild(d);
+    });
+  }
+}
+
+/* ---------- Trainer: Variante lernen, abfragen oder Partie nachspielen ---------- */
+// opts: { title, sub, parsed, side, mode: "learn"|"quiz"|"game", lineId, onFinish(ok, errors), backHref }
+function mountTrainer(root, opts) {
+  const P = opts.parsed, moves = P.moves, side = opts.side || "w";
+  const startPos = Chess.fromFEN(P.fen);
+  const positions = [startPos]; // Stellung nach jedem Halbzug
+  const lastMoves = [null];
+  for (const m of moves) {
+    const prev = positions[positions.length - 1];
+    const mv = Chess.legalMoves(prev).find(x => Chess.uci(x) === m.uci);
+    positions.push(Chess.make(prev, mv)); lastMoves.push([mv.from, mv.to]);
+  }
+  const quiz = opts.mode === "quiz";
+  let ply = 0, errors = 0, wrongTries = 0, finished = false, revealed = false, timer = 0;
+  root.innerHTML = `<div class="trainer">
+    <div id="t-board"></div>
+    <div class="side">
+      <div class="panel stack">
+        <div><a href="${opts.backHref}" class="small">‹ Zurück</a></div>
+        <div><h2 style="margin:0">${esc(opts.title)}</h2>${opts.sub ? `<div class="muted small">${esc(opts.sub)}</div>` : ""}</div>
+        <div class="row">${opts.mode === "learn" ? '<span class="badge new">Lernen</span>' : quiz ? '<span class="badge due">Abfragen</span>' : '<span class="badge">Musterpartie</span>'}
+          <span class="badge ${side}">Du spielst ${SIDE[side]}</span><span class="status" id="t-status"></span></div>
+      </div>
+      <div class="panel comment" id="t-comment"></div>
+      <div class="panel"><div class="moves" id="t-moves"></div></div>
+      <div class="ctrl" id="t-ctrl"></div>
+      <div id="t-end"></div>
+    </div></div>`;
+  const board = new Board($("#t-board", root), { orientation: side, onMove: userMove });
+  const startTurn = startPos.turn;
+  const userTurnAt = p => positions[p].turn === side;
+
+  function draw() {
+    const c = ply > 0 ? parseComment(moves[ply - 1].comment) : parseComment(P.intro);
+    board.setPosition(positions[ply], lastMoves[ply]);
+    board.setMarks(c.marks);
+    board.setArrows(c.arrows.map(a => [a[0], a[1], "idea"]));
+    // Kommentar
+    const head = ply > 0 ? `<b>${moveNo(ply - 1, startTurn)}${(ply - 1 + (startTurn === "b" ? 1 : 0)) % 2 ? "…" : "."} ${esc(moves[ply - 1].san)}</b> ` : "";
+    let txt = c.text;
+    if (quiz && ply > 0 && !finished && !userTurnAt(ply - 1)) txt = c.text; // Gegnerzug: Erklärung zeigen
+    $("#t-comment", root).innerHTML = (head || txt) ? `${head}${esc(txt) || (ply === 0 ? "" : '<span class="muted">Kein Kommentar zu diesem Zug.</span>')}`
+      : `<span class="muted">${quiz ? "Spiele den Zug deiner Seite auf dem Brett." : "Mit „Weiter“ oder den Pfeiltasten gehst du Zug für Zug durch die Variante. Du kannst den nächsten Zug auch selbst auf dem Brett ziehen."}</span>`;
+    // Zugliste
+    let h = "";
+    moves.forEach((m, i) => {
+      const n = i + (startTurn === "b" ? 1 : 0);
+      if (n % 2 === 0) h += `<span class="no">${n / 2 + 1}.</span>`;
+      else if (i === 0) h += `<span class="no">${(n + 1) / 2}…</span>`;
+      const cls = i + 1 === ply ? "cur" : i >= ply ? (quiz ? "hide" : "future") : "";
+      h += `<button type="button" data-ply="${i + 1}" class="${cls}" ${quiz ? "disabled" : ""}>${esc(m.san)}</button>`;
+    });
+    $("#t-moves", root).innerHTML = h;
+    $("#t-moves .cur", root)?.scrollIntoView({ block: "nearest" });
+    // Steuerung
+    if (!quiz) {
+      $("#t-ctrl", root).innerHTML = `<button class="btn icon" data-go="first" aria-label="Zum Anfang">${icon("first")}</button><button class="btn icon" data-go="prev" aria-label="Zug zurück">${icon("prev")}</button>
+        <button class="btn primary" data-go="next" ${ply >= moves.length ? "disabled" : ""}>Weiter ${icon("next")}</button><button class="btn icon" data-go="last" aria-label="Zum Ende">${icon("last")}</button>
+        <button class="btn icon" data-go="flip" aria-label="Brett drehen">${icon("flip")}</button>`;
+      board.setMovable(ply < moves.length ? positions[ply].turn : null);
+    } else {
+      $("#t-ctrl", root).innerHTML = finished ? `<button class="btn icon" data-go="flip" aria-label="Brett drehen">${icon("flip")}</button>`
+        : `<button class="btn" data-go="hint">Tipp</button><button class="btn" data-go="solve">Lösung zeigen</button><button class="btn icon" data-go="flip" aria-label="Brett drehen">${icon("flip")}</button>`;
+      board.setMovable(!finished && ply < moves.length && userTurnAt(ply) ? side : null);
+    }
+    if (ply >= moves.length && !finished) finish();
+  }
+  function status(text, cls) { const s = $("#t-status", root); s.textContent = text || ""; s.className = "status " + (cls || ""); }
+  function go(n) { ply = Math.max(0, Math.min(moves.length, n)); draw(); }
+  function advanceOpponent() {
+    clearTimeout(timer);
+    if (ply < moves.length && !userTurnAt(ply)) timer = setTimeout(() => { ply++; draw(); advanceOpponent(); }, 450);
+  }
+  function userMove(m) {
+    const expect = moves[ply];
+    if (!expect) return false;
+    if (Chess.uci(m) === expect.uci) {
+      ply++; wrongTries = 0; revealed = false;
+      if (quiz) status("Richtig!", "good");
+      draw();
+      if (quiz) advanceOpponent();
+      return true;
+    }
+    // falscher Zug
+    board.flashWrong(m.from, m.to);
+    if (quiz) {
+      if (!wrongTries) errors++;
+      wrongTries++;
+      status(`Nicht der Kurszug (${Chess.san(positions[ply], m)}).`, "bad");
+      if (wrongTries >= 2) showHint(true);
+    } else status(`Im Kurs folgt ${expect.san}.`, "bad");
+    return false;
+  }
+  function showHint(full) {
+    const exp = moves[ply]; if (!exp) return;
+    const from = exp.uci.slice(0, 2), to = exp.uci.slice(2, 4);
+    if (!revealed) { errors += wrongTries ? 0 : 1; revealed = true; }
+    if (full) { board.setArrows([[from, to, "hint"]]); status(`Gesucht: ${exp.san}`, "bad"); }
+    else { board.setMarks([from]); status("Diese Figur zieht.", ""); }
+  }
+  function finish() {
+    finished = true;
+    clearTimeout(timer);
+    board.setMovable(null);
+    let html = "";
+    if (opts.mode === "learn") {
+      SRS.learned(opts.lineId);
+      html = `<div class="panel stack"><div class="ok">Variante durchgearbeitet. Sie ist jetzt zum Abfragen bereit.</div>
+        <div class="row"><a class="btn primary" href="#/ueben/${encodeURIComponent(opts.lineId)}/quiz">Jetzt abfragen</a><a class="btn" href="${opts.backHref}">Zum Kurs</a></div></div>`;
+    } else if (quiz) {
+      const ok = errors === 0, s = SRS.result(opts.lineId, ok);
+      html = `<div class="panel stack"><div class="${ok ? "ok" : "err"}">${ok ? "Fehlerfrei! " : `${errors} Fehler – die Variante kommt früher wieder. `}Nächste Wiederholung ${relDay(s.due)}.</div>
+        <div class="row" id="t-next"></div></div>`;
+      status(ok ? "Geschafft" : "Mit Fehlern", ok ? "good" : "bad");
+    } else html = `<div class="panel"><div class="ok">Ende der Partie.</div></div>`;
+    $("#t-end", root).innerHTML = html;
+    opts.onFinish?.($("#t-end", root));
+    draw();
+  }
+  root.onclick = e => {
+    const b = e.target.closest("[data-go]");
+    if (b) {
+      const g = b.dataset.go;
+      if (g === "flip") board.flip();
+      if (g === "first") go(0); if (g === "prev") go(ply - 1); if (g === "next") go(ply + 1); if (g === "last") go(moves.length);
+      if (g === "hint") showHint(false);
+      if (g === "solve") { showHint(true); }
+      return;
+    }
+    const mv = e.target.closest("[data-ply]");
+    if (mv && !quiz) go(+mv.dataset.ply);
+  };
+  const onKey = e => {
+    if (quiz || /INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+    if (e.key === "ArrowRight") go(ply + 1); if (e.key === "ArrowLeft") go(ply - 1);
+    if (e.key === "Home") go(0); if (e.key === "End") go(moves.length);
+  };
+  document.addEventListener("keydown", onKey);
+  draw();
+  if (quiz) advanceOpponent();
+  return () => { clearTimeout(timer); document.removeEventListener("keydown", onKey); };
+}
+
+/* ---------- Ansichten ---------- */
+const Views = {};
+let session = { queue: [], qi: 0 }; // Abfrage-Warteschlange (fällige Varianten)
+
+function lineCounts(entries) {
+  const t = entries.filter(e => !e.error);
+  return { total: entries.length, learned: t.filter(e => SRS.get(e.id)?.learned).length, due: t.filter(e => SRS.isDue(e.id)).length, errors: entries.filter(e => e.error).length };
+}
+function firstNew(level) {
+  for (const c of COURSES.filter(c => !level || c.level === level)) for (const e of Content.ofCourse(c)) if (!e.error && !SRS.get(e.id)?.learned) return e;
+  return null;
+}
+
+Views.start = root => {
+  const due = Content.due(), lvl = Store.data.level, nxt = firstNew(lvl) || firstNew();
+  const all = lineCounts([...Content.lines.values()].filter(e => !e.course.own));
+  const qOk = Store.data.stats.quizOk, qFail = Store.data.stats.quizFail;
+  root.innerHTML = `
+    <div class="hero" style="margin-bottom:16px">
+      <div class="panel stack">
+        <div class="muted small" style="font-weight:700;text-transform:uppercase;letter-spacing:.04em">Heute fällig</div>
+        <div class="row" style="align-items:baseline;gap:12px"><span class="big-num">${due.length}</span><span style="font-size:20px;font-weight:700">${due.length === 1 ? "Variante" : "Varianten"}</span></div>
+        <div class="row">${due.length ? `<button class="btn primary big" id="s-review">Wiederholung starten</button>` : `<span class="muted">Alles wiederholt – stark!</span>`}
+          ${nxt ? `<a class="btn ${due.length ? "" : "primary big"}" href="#/ueben/${encodeURIComponent(nxt.id)}/learn">Neue Variante lernen</a>` : ""}</div>
+        ${nxt ? `<div class="muted small">Vorschlag: ${esc(nxt.course.title)} – ${esc(nxt.line.name)}</div>` : ""}
+      </div>
+      <div class="panel stack">
+        <div class="row" style="justify-content:space-between"><b>Deine Stufe</b>
+          <select class="input" id="s-level" style="width:auto;min-height:38px">${LEVELS.filter(l => !l.soon).map(l => `<option value="${l.id}" ${l.id === lvl ? "selected" : ""}>${l.name} (${l.elo})</option>`).join("")}</select></div>
+        <div class="row" style="justify-content:space-between"><span>Gelernte Varianten</span><b>${all.learned} / ${all.total - all.errors}</b></div>
+        <div class="bar"><i style="width:${all.total ? all.learned / (all.total - all.errors) * 100 : 0}%"></i></div>
+        <div class="row" style="justify-content:space-between"><span>Trainingstage in Folge</span><b>${streak()}</b></div>
+        <div class="row" style="justify-content:space-between"><span>Abfragen fehlerfrei</span><b>${qOk + qFail ? Math.round(qOk / (qOk + qFail) * 100) + " %" : "–"}</b></div>
+      </div>
+    </div>
+    ${Content.errors.length ? `<div class="err" style="margin-bottom:16px">Prüfung beim Start: ${Content.errors.length} fehlerhafte ${Content.errors.length === 1 ? "Variante" : "Varianten"} gefunden. <a href="#/fortschritt">Details</a></div>` : ""}
+    <h2>Training</h2>
+    <div class="grid">
+      <a class="panel card" href="#/eroeffnungen"><div class="t"><h3>Eröffnungskurse</h3><span class="badge due">${all.due} fällig</span></div><p class="muted small" style="margin:0">Lernen und abfragen mit Wiederholung in Abständen: Einsteiger und Aufsteiger.</p></a>
+      <a class="panel card" href="#/eigene"><div class="t"><h3>Eigene Kurse</h3><span class="badge">${Store.data.own.length}</span></div><p class="muted small" style="margin:0">Füge eigene Varianten als PGN ein und frage sie genauso ab.</p></a>
+      ${[["Figurensicherheit", "Steht meine Figur sicher? Mit 5-Minuten-Modus.", "Etappe 2"], ["Taktiktrainer", "Über 60 Aufgaben nach Motiven sortiert.", "Etappe 2"], ["Endspieltrainer", "Matt mit Dame und Turm, Opposition, Lucena, Philidor.", "Etappe 3"],
+        ["Errate den Zug", "Meisterpartien Zug für Zug nachspielen.", "Etappe 3"], ["Partie spielen", "Gegner mit menschenähnlicher Spielstärke.", "Etappe 3"], ["Trainingsplan", "Wochenplan und Statistik.", "Etappe 4"]]
+        .map(([t, d, e]) => `<div class="panel card soon-tile"><div class="t"><h3>${t}</h3><span class="badge">${e}</span></div><p class="muted small" style="margin:0">${d}</p></div>`).join("")}
+    </div>
+    <footer class="note">Läuft komplett offline. Dein Fortschritt liegt nur in diesem Browser – sichere ihn unter <a href="#/fortschritt">Fortschritt → Export</a>.</footer>`;
+  $("#s-level", root).onchange = e => { Store.data.level = e.target.value; Store.save(); };
+  const r = $("#s-review", root); if (r) r.onclick = () => startQueue(due.map(e => e.id));
+};
+
+function startQueue(ids) {
+  if (!ids.length) { toast("Gerade ist nichts fällig."); return; }
+  session = { queue: ids, qi: 0 };
+  location.hash = `#/ueben/${encodeURIComponent(ids[0])}/quiz`;
+}
+
+Views.eroeffnungen = (root, args) => {
+  const lvl = args[0] || Store.data.level || "einsteiger";
+  const level = LEVELS.find(l => l.id === lvl) || LEVELS[0];
+  root.innerHTML = `<h1>Eröffnungen</h1><p class="muted">Wähle deine Stufe. Jede Variante lernst du zuerst Zug für Zug und fragst sie dann ab.</p>
+    <div class="tabs" style="margin-bottom:16px">${LEVELS.map(l => `<button type="button" data-l="${l.id}" aria-pressed="${l.id === level.id}">${l.name}</button>`).join("")}</div>
+    <div id="e-body"></div>`;
+  const body = $("#e-body", root);
+  if (level.soon) body.innerHTML = `<div class="panel"><b>${level.name} (${level.elo})</b><p class="muted" style="margin:6px 0 0">Kommt in ${level.soon}: Spanisch, Damengambit, Sizilianisch, Französisch, Nimzo- und Damenindisch, später Najdorf, Königsindisch, Grünfeld und Katalanisch.</p></div>`;
+  else body.innerHTML = `<div class="grid">${COURSES.filter(c => c.level === level.id).map(courseCard).join("")}</div>`;
+  $(".tabs", root).onclick = e => { const b = e.target.closest("[data-l]"); if (b) location.hash = `#/eroeffnungen/${b.dataset.l}`; };
+};
+function sideBadge(c, prefix = "") {
+  const sides = new Set(c.lines.map(l => l.side || c.side));
+  return sides.size > 1 ? `<span class="badge">${prefix}Weiß &amp; Schwarz</span>` : `<span class="badge ${c.side}">${prefix}${SIDE[c.side]}</span>`;
+}
+function courseCard(c) {
+  const n = lineCounts(Content.ofCourse(c));
+  return `<a class="panel card" href="#/kurs/${c.id}"><div class="t"><h3>${esc(c.title)}</h3>${sideBadge(c)}</div>
+    <p class="muted small" style="margin:0">${esc(c.short || "")}</p>
+    <div class="bar"><i style="width:${n.total ? n.learned / n.total * 100 : 0}%"></i></div>
+    <div class="row small"><span class="muted">${n.learned} / ${n.total} gelernt</span>${n.due ? `<span class="badge due">${n.due} fällig</span>` : ""}${n.errors ? `<span class="badge err">${n.errors} fehlerhaft</span>` : ""}</div></a>`;
+}
+
+Views.kurs = (root, args) => {
+  const c = Content.courseById(args[0]);
+  if (!c) { root.innerHTML = `<div class="err">Kurs nicht gefunden.</div>`; return; }
+  const entries = Content.ofCourse(c), n = lineCounts(entries);
+  const back = c.own ? "#/eigene" : `#/eroeffnungen/${c.level}`;
+  root.innerHTML = `<div class="small"><a href="${back}">‹ ${c.own ? "Eigene Kurse" : "Eröffnungen"}</a></div>
+    <div class="row" style="justify-content:space-between;margin:6px 0 14px"><div><h1>${esc(c.title)}</h1><div class="row">${sideBadge(c, "Du spielst ")}${c.level && !c.own ? `<span class="badge">${LEVELS.find(l => l.id === c.level)?.name}</span>` : ""}</div></div>
+      ${n.due ? `<button class="btn primary" id="k-due">${n.due} fällige abfragen</button>` : ""}</div>
+    <div class="stack">
+      ${c.lesson ? `<div class="panel lesson">${c.lesson.map(([t, p]) => `<h3>${esc(t)}</h3><p>${esc(p)}</p>`).join("")}</div>` : ""}
+      ${c.intro ? `<div class="grid">${[["Ideen", c.intro.ideen], ["Typische Pläne", c.intro.plaene], ["Bauernstruktur", c.intro.struktur]].filter(x => x[1]).map(([t, p]) => `<div class="panel"><h3>${t}</h3><p class="small" style="margin:0">${esc(p)}</p></div>`).join("")}</div>` : ""}
+      <div class="panel"><h2>Varianten</h2><div class="list">${entries.map(e => {
+        const lab = SRS.label(e.id);
+        return `<div class="li"><div class="nm">${esc(e.line.name)}<small>${e.error ? "" : `${e.parsed.moves.length} Halbzüge`}${e.side !== c.side ? ` · du spielst ${SIDE[e.side]}` : ""}</small></div>
+          ${e.error ? `<span class="badge err" title="${esc(e.error)}">Fehlerhaft: ${esc(e.error)}</span>` : `<span class="badge ${lab.cls}">${lab.text}</span>
+          <a class="btn small" href="#/ueben/${encodeURIComponent(e.id)}/learn">Lernen</a><a class="btn small ${SRS.isDue(e.id) ? "primary" : ""}" href="#/ueben/${encodeURIComponent(e.id)}/quiz">Abfragen</a>`}</div>`;
+      }).join("") || `<p class="muted">Noch keine Varianten.</p>`}</div></div>
+      ${(c.games || []).length ? `<div class="panel"><h2>Musterpartien</h2><div class="list">${c.games.map(k => { const g = Content.games.get(k); return `<div class="li"><div class="nm">${esc(g.game.title)}<small>${esc(g.game.place)} ${g.game.year}</small></div>${g.error ? `<span class="badge err">${esc(g.error)}</span>` : `<a class="btn small" href="#/partie/${k}/${c.side}">Nachspielen</a>`}</div>`; }).join("")}</div></div>`
+        : (!c.own && !c.lesson ? `<div class="panel muted small">Für dieses System gibt es keine passende, gesicherte Meisterpartie aus der Zeit vor 1950 – es wurde erst später populär.</div>` : "")}
+    </div>`;
+  const d = $("#k-due", root); if (d) d.onclick = () => startQueue(entries.filter(e => !e.error && SRS.isDue(e.id)).map(e => e.id));
+};
+
+Views.ueben = (root, args) => {
+  const id = decodeURIComponent(args[0] || ""), mode = args[1] === "quiz" ? "quiz" : "learn", e = Content.lines.get(id);
+  if (!e) { root.innerHTML = `<div class="err">Variante nicht gefunden.</div>`; return; }
+  if (e.error) { root.innerHTML = `<div class="err">Diese Variante ist fehlerhaft und kann nicht geübt werden: ${esc(e.error)}</div>`; return; }
+  root.classList.add("train");
+  const inQueue = mode === "quiz" && session.queue[session.qi] === id;
+  return mountTrainer(root, {
+    title: e.line.name, sub: e.course.title + (inQueue ? ` · Wiederholung ${session.qi + 1} von ${session.queue.length}` : ""),
+    parsed: e.parsed, side: e.side, mode, lineId: id, backHref: `#/kurs/${e.course.id}`,
+    onFinish(box) {
+      const next = $("#t-next", box); if (!next) return;
+      if (inQueue && session.qi + 1 < session.queue.length) {
+        next.innerHTML = `<button class="btn primary" id="q-next">Nächste Variante (${session.qi + 2} von ${session.queue.length})</button><a class="btn" href="#/">Pause</a>`;
+        $("#q-next", box).onclick = () => { session.qi++; location.hash = `#/ueben/${encodeURIComponent(session.queue[session.qi])}/quiz`; };
+      } else {
+        if (inQueue) session = { queue: [], qi: 0 };
+        next.innerHTML = `<a class="btn primary" href="#/ueben/${encodeURIComponent(id)}/quiz">Noch einmal</a><a class="btn" href="#/kurs/${e.course.id}">Zum Kurs</a><a class="btn" href="#/">Start</a>`;
+      }
+    }
+  });
+};
+
+Views.partie = (root, args) => {
+  const g = Content.games.get(args[0]);
+  if (!g || g.error) { root.innerHTML = `<div class="err">Partie nicht verfügbar.</div>`; return; }
+  root.classList.add("train");
+  return mountTrainer(root, { title: g.game.title, sub: `${g.game.place} ${g.game.year}`, parsed: g.parsed, side: args[1] === "b" ? "b" : "w", mode: "game", backHref: "javascript:history.back()" });
+};
+
+Views.eigene = root => {
+  const own = Store.data.own;
+  root.innerHTML = `<h1>Eigene Kurse</h1><p class="muted">Lege Kurse an und füge Varianten als PGN ein (deutsche oder englische Notation, Kommentare in {…}). Jede Variante wird beim Einfügen auf Legalität geprüft.</p>
+    <div class="stack">
+      <form class="panel stack" id="o-new"><h2 style="margin:0">Neuer Kurs</h2>
+        <div class="row" style="flex-wrap:nowrap"><input class="input" id="o-title" placeholder="z. B. Meine Sizilianisch-Varianten" required>
+        <select class="input" id="o-side" style="width:auto"><option value="w">Ich spiele Weiß</option><option value="b">Ich spiele Schwarz</option></select>
+        <button class="btn primary" type="submit">Anlegen</button></div></form>
+      ${own.map(c => `<div class="panel stack" data-c="${c.id}">
+        <div class="row" style="justify-content:space-between"><div><h2 style="margin:0">${esc(c.title)}</h2><span class="badge ${c.side}">${SIDE[c.side]}</span> <span class="muted small">${c.lines.length} Varianten</span></div>
+          <div class="row"><a class="btn small" href="#/kurs/${c.id}">Öffnen</a><button class="btn small" data-del-c>Löschen</button></div></div>
+        <details><summary style="cursor:pointer;font-weight:600">Variante hinzufügen</summary>
+          <div class="stack" style="margin-top:10px"><input class="input" data-f="name" placeholder="Name der Variante">
+          <textarea class="input" data-f="pgn" placeholder="1.e4 c5 2.Sf3 d6 3.d4 cxd4 4.Sxd4 Sf6 5.Sc3 a6 {Najdorf}"></textarea>
+          <div class="err" data-f="err" hidden></div><div><button class="btn primary" data-add>Prüfen und speichern</button></div></div></details>
+        ${c.lines.length ? `<div class="list">${c.lines.map(l => { const e = Content.lines.get(`own-${c.id}:${l.key}`); return `<div class="li"><div class="nm">${esc(l.name)}<small>${e?.error ? "" : e.parsed.moves.length + " Halbzüge"}</small></div>${e?.error ? `<span class="badge err">Fehlerhaft: ${esc(e.error)}</span>` : `<span class="badge ${SRS.label(e.id).cls}">${SRS.label(e.id).text}</span>`}<button class="btn small" data-del-l="${l.key}">Entfernen</button></div>`; }).join("")}</div>` : ""}
+      </div>`).join("")}
+    </div>`;
+  $("#o-new", root).onsubmit = ev => {
+    ev.preventDefault();
+    const title = $("#o-title", root).value.trim(); if (!title) return;
+    own.push({ id: "k" + Date.now().toString(36), title, side: $("#o-side", root).value, lines: [] });
+    Store.save(); Content.build(); Views.eigene(root);
+  };
+  root.onclick = ev => {
+    const box = ev.target.closest("[data-c]"); if (!box) return;
+    const c = own.find(x => x.id === box.dataset.c);
+    if (ev.target.closest("[data-del-c]")) { if (confirm(`Kurs „${c.title}“ mit allen Varianten löschen?`)) { Store.data.own = own.filter(x => x !== c); Store.save(); Content.build(); Views.eigene(root); } return; }
+    const dl = ev.target.closest("[data-del-l]");
+    if (dl) { c.lines = c.lines.filter(l => l.key !== dl.dataset.delL); delete Store.data.srs[`own-${c.id}:${dl.dataset.delL}`]; Store.save(); Content.build(); Views.eigene(root); return; }
+    if (ev.target.closest("[data-add]")) {
+      const name = $('[data-f="name"]', box).value.trim() || "Variante " + (c.lines.length + 1), pgn = $('[data-f="pgn"]', box).value;
+      const r = Chess.parsePgn(pgn), err = $('[data-f="err"]', box);
+      if (r.error) { err.hidden = false; err.textContent = `Fehler bei Zug ${Math.floor(r.error.ply / 2) + 1}${r.error.ply % 2 ? "…" : "."} „${r.error.token}“: ${r.error.reason}. Bisher gültig: ${r.moves.map(m => m.san).join(" ") || "–"}`; return; }
+      if (!r.moves.length) { err.hidden = false; err.textContent = "Keine Züge gefunden."; return; }
+      c.lines.push({ key: "v" + Date.now().toString(36), name, pgn }); Store.save(); Content.build(); Views.eigene(root); toast("Variante gespeichert.");
+    }
+  };
+};
+
+Views.fortschritt = root => {
+  const levelRows = LEVELS.filter(l => !l.soon).map(l => { const n = lineCounts(COURSES.filter(c => c.level === l.id).flatMap(c => Content.ofCourse(c))); return `<div class="li"><div class="nm">${l.name}<small>${l.elo}</small></div><span>${n.learned} / ${n.total} gelernt</span>${n.due ? `<span class="badge due">${n.due} fällig</span>` : ""}</div>`; }).join("");
+  const total = Content.lines.size, games = Content.games.size;
+  root.innerHTML = `<h1>Fortschritt</h1>
+    <div class="stack">
+      <div class="panel"><h2>Eröffnungen</h2><div class="list">${levelRows}</div></div>
+      <div class="panel stack"><h2 style="margin:0">Prüfbericht</h2>
+        <p class="small" style="margin:0">Beim Start wurden ${total} Varianten und ${games} Musterpartien mit der eingebauten Zuggenerierung Zug für Zug geprüft.</p>
+        ${Content.errors.length ? `<div class="err">${Content.errors.map(x => `<div><b>${esc(x.where)}</b>: ${esc(x.msg)}</div>`).join("")}</div>` : `<div class="ok">Alle Züge sind legal.</div>`}</div>
+      <div class="panel stack"><h2 style="margin:0">Fortschritt sichern (Export)</h2><p class="small muted" style="margin:0">Kopiere den Text und bewahre ihn auf, z. B. in einer Notiz. Er enthält Lernstände und eigene Kurse.</p>
+        <textarea class="input" id="x-out" readonly></textarea><div><button class="btn" id="x-copy">Kopieren</button></div></div>
+      <div class="panel stack"><h2 style="margin:0">Fortschritt laden (Import)</h2><p class="small muted" style="margin:0">Ersetzt den aktuellen Stand im Browser.</p>
+        <textarea class="input" id="x-in" placeholder="Exportierten Text hier einfügen"></textarea><div class="err" id="x-err" hidden></div><div><button class="btn primary" id="x-imp">Importieren</button></div></div>
+      <div class="panel row" style="justify-content:space-between"><span class="small muted">Alles zurücksetzen (Lernstände und eigene Kurse)</span><button class="btn" id="x-reset">Zurücksetzen</button></div>
+      <div class="panel row" style="justify-content:space-between"><span class="small muted">Die ganze App ist eine einzige Datei und läuft auch offline im Browser.</span><a class="btn" href="schach.html" download="schachtraining.html">Als Datei herunterladen</a></div>
+    </div>`;
+  $("#x-out", root).value = JSON.stringify({ app: "schachtraining", exportiert: new Date().toISOString(), daten: Store.data });
+  $("#x-copy", root).onclick = async () => { const t = $("#x-out", root); t.select(); try { await navigator.clipboard.writeText(t.value); toast("Kopiert."); } catch (e) { document.execCommand?.("copy"); toast("Text markiert – mit Strg+C kopieren."); } };
+  $("#x-imp", root).onclick = () => {
+    const err = $("#x-err", root); err.hidden = true;
+    try {
+      const j = JSON.parse($("#x-in", root).value.trim());
+      const d = j.daten || j;
+      if (!d || typeof d !== "object" || typeof d.srs !== "object" || !Array.isArray(d.own)) throw new Error("Das sieht nicht nach einem Export dieser App aus.");
+      if (!confirm("Aktuellen Fortschritt durch den importierten ersetzen?")) return;
+      Store.data = Object.assign({ version: 1, srs: {}, own: [], days: {}, level: "einsteiger", stats: { quizOk: 0, quizFail: 0 } }, d);
+      Store.save(); Content.build(); toast("Fortschritt importiert."); Views.fortschritt(root);
+    } catch (e) { err.hidden = false; err.textContent = "Import nicht möglich: " + (e.message || e); }
+  };
+  $("#x-reset", root).onclick = () => { if (confirm("Wirklich alles zurücksetzen? Das lässt sich nicht rückgängig machen.")) { Store.data = null; try { localStorage.removeItem(STORE_KEY); } catch (e) {} Store.load(); Content.build(); Views.fortschritt(root); } };
+};
+
+/* ---------- Router ---------- */
+let cleanup = null;
+function route() {
+  if (cleanup) { try { cleanup(); } catch (e) {} cleanup = null; }
+  const parts = (location.hash.replace(/^#\/?/, "") || "").split("/").filter(Boolean);
+  const name = parts[0] || "start", view = Views[name] || Views.start;
+  const root = $("#app"); root.className = "wrap"; root.onclick = null; root.innerHTML = "";
+  $$("#nav a").forEach(a => a.setAttribute("aria-current", String((a.getAttribute("href").replace("#/", "") || "start") === (["kurs", "ueben", "partie"].includes(name) ? "eroeffnungen" : name) ? "page" : "false")));
+  cleanup = view(root, parts.slice(1)) || null;
+  window.scrollTo(0, 0);
+}
+
+/* ---------- Hell/Dunkel wie in der Daily-App ---------- */
+function syncTheme() {
+  let t = null;
+  try { t = window.parent !== window ? window.parent.document.documentElement.dataset.theme : null; } catch (e) { t = null; }
+  if (!t) try { t = localStorage.getItem("db-theme"); } catch (e) {}
+  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  if ($("#theme-btn")) drawThemeBtn();
+}
+window.addEventListener("storage", e => { if (e.key === "db-theme") syncTheme(); });
+const isDark = () => document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+function drawThemeBtn() {
+  $("#theme-btn").innerHTML = isDark()
+    ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>'
+    : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+}
+$("#theme-btn").onclick = () => {
+  // eingebettet in der Daily-App: deren Umschalter benutzen (speichert auch fürs Konto), sonst nur hier im Browser
+  try { const pb = window.parent !== window && window.parent.document.querySelector(".theme-btn"); if (pb) { pb.click(); setTimeout(() => { syncTheme(); drawThemeBtn(); }, 50); return; } } catch (e) {}
+  const next = isDark() ? "light" : "dark";
+  document.documentElement.dataset.theme = next; try { localStorage.setItem("db-theme", next); } catch (e) {}
+  drawThemeBtn();
+};
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", drawThemeBtn);
+try { if (window.parent !== window) new MutationObserver(syncTheme).observe(window.parent.document.documentElement, { attributes: true, attributeFilter: ["data-theme"] }); } catch (e) {}
+
+/* ---------- Start ---------- */
+Store.load();
+Content.build();
+syncTheme();
+$("#logo-knight").innerHTML = PIECE_SVG.N;
+window.addEventListener("hashchange", route);
+route();
+/*APP-END*/
+
+</script>
+</body>
+</html>

@@ -32,7 +32,7 @@
   --fs: 1;                       /* Schriftgröße (Einstellungen), Faktor */
   /* Farben der Bereichs-Symbole (iOS-Systemfarben) */
   --c-blue: #0A84FF; --c-orange: #FF9500; --c-green: #34C759; --c-red: #FF3B30; --c-pink: #FF2D55; --c-purple: #AF52DE;
-  --c-indigo: #5856D6; --c-teal: #30B0C7; --c-yellow: #FFCC00; --c-gray: #8E8E93; --c-brown: #A2845E; --c-mint: #00C7BE; --c-cyan: #32ADE6;
+  --c-chess: #4F8A2B; --c-indigo: #5856D6; --c-teal: #30B0C7; --c-yellow: #FFCC00; --c-gray: #8E8E93; --c-brown: #A2845E; --c-mint: #00C7BE; --c-cyan: #32ADE6;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
@@ -110,6 +110,11 @@ h3 { font-size: calc(17px * var(--fs)); font-weight: 600 }
 
 .view { max-width: 900px; margin: 0 auto; padding-block: 0 calc(40px + 50px + env(safe-area-inset-bottom, 0px)); padding-left: max(var(--gutter), env(safe-area-inset-left, 0px)); padding-right: max(var(--gutter), env(safe-area-inset-right, 0px)); outline: none }
 .view.wide { max-width: 1240px }
+/* Bereiche mit eigener Oberfläche (Schach): volle Breite, ohne Rand */
+.view.bleed { max-width: none; padding: 0 }
+.main.bleed .navtop { display: none }
+.schach-frame { display: block; width: 100%; height: calc(100dvh - 50px - env(safe-area-inset-bottom, 0px)); border: 0; background: var(--bg) }
+@media (min-width: 900px) { .schach-frame { height: 100dvh } .view.bleed { padding: 0 } }
 @media (min-width: 900px) { .view { padding-bottom: 48px; padding-left: 28px; padding-right: 28px } .navtop { padding-left: 28px; padding-right: 28px } }
 /* Umbrüche innerhalb der Ansicht richten sich nach ihrer Breite (@container), damit sie der Anzeigegröße folgen */
 .view, .overlay { container-type: inline-size }

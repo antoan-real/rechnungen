@@ -50,6 +50,15 @@ Jeder Bereich ist ein eigenes Modul unter `js/modules/`, Daten liegen pro Nutzer
 - Mehrere PDFs zusammenfügen (pdf-lib) und komprimieren (Ghostscript als WebAssembly, AGPL-3.0) – komplett im Browser,
   nichts wird hochgeladen oder gespeichert; Stufen Nicht / Leicht (150 dpi) / Stark (110 dpi) / Maximal (72 dpi)
 
+## Schach (eigene Datei schach.html, als Hauptbereich eingebettet)
+- Etappe 1 ✅: Regel-Engine (Perft-geprüft, Rochade, e.p., Umwandlung, Matt/Patt, Wiederholung, 50 Züge),
+  Brett (Klicken/Ziehen, drehbar, Pfeile, letzter Zug, Koordinaten), Eröffnungskurse Lernen/Abfragen mit
+  Wiederholung in Abständen (1/3/7/14/30 Tage), Einsteiger + Aufsteiger, eigene Kurse per PGN, Export/Import
+- Etappe 2: Figurensicherheit, Taktiktrainer
+- Etappe 3: Endspieltrainer, „Errate den Zug“, Partien gegen menschenähnlichen Gegner
+- Etappe 4: Fortgeschrittene/Starke Eröffnungen, Trainingsplan, Statistik
+- Prüfung: `node scripts/schach-check.js` (Perft + Legalität aller Varianten und Musterpartien)
+
 ## Phase 5
 - Englisch lernen
 - Trading

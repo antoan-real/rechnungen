@@ -115,6 +115,7 @@ async function route() {
   view.innerHTML = "";
   view.classList.toggle("wide", !!m.wide);
   $("#main").classList.toggle("wide", !!m.wide);
+  view.classList.toggle("bleed", !!m.bleed); $("#main").classList.toggle("bleed", !!m.bleed);
   renderNav(m.id);
   document.title = m.id === "dashboard" ? "Daily Begleiter" : `${m.title} · Daily Begleiter`;
   if (m.soon) {
@@ -159,6 +160,13 @@ onAuthStateChanged(auth, async u => {
   $("#shell").hidden = false;
   view.innerHTML = `<div class="empty">Lade …</div>`;
   stopSettings = await startSettings();
+  // Einmalig: neuer Hauptbereich „Schach“ an Platz 2 der Tab-Leiste (der bisher letzte Platz rückt unter „Mehr“)
+  { const st = getSettings();
+    if (st.nav?.bar && !st.nav.schachAdded && !st.nav.bar.includes("schach")) {
+      const { order, bar } = navLayout(st);
+      const nb = [...bar.slice(0, 1), "schach", ...bar.slice(1)].slice(0, 4);
+      saveSettings({ nav: { ...st.nav, order, bar: nb, schachAdded: true } }).catch(() => {});
+    } }
   stopNav = onSettings(() => renderNav((decodeURIComponent(location.hash.slice(1)) || "dashboard")));
   renderThemeBtns();
   stopReminders = startReminders(ctx);

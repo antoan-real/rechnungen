@@ -2,6 +2,7 @@
 // "soon" markiert Bereiche, die erst in einer späteren Phase kommen.
 export const MODULES = [
   { id: "dashboard", title: "Heute", icon: "home", color: "red", load: () => import("./dashboard.js") },
+  { id: "schach", title: "Schach", icon: "crown", color: "chess", main: true, bleed: true, load: () => import("./schach.js") },
   { id: "gewohnheiten", title: "Gewohnheiten", icon: "check-circle", color: "teal", load: () => import("./gewohnheiten.js") },
   { id: "rechnungen", title: "Rechnungen", icon: "file-text", color: "green", wide: true, load: () => import("./rechnungen/index.js") },
   { id: "training", title: "Training", icon: "dumbbell", color: "orange", load: () => import("./training.js") },
@@ -21,7 +22,7 @@ export const MORE_MODULE = { id: "mehr", title: "Mehr", icon: "more", color: "gr
 /** Tab-Leiste unten am Handy: höchstens 4 Bereiche + „Mehr“ */
 export const BAR_MAX = 4;
 
-export const DEFAULT_BAR = ["dashboard", "gewohnheiten", "training", "rechnungen"];
+export const DEFAULT_BAR = ["dashboard", "schach", "gewohnheiten", "rechnungen"];
 
 // Kacheln auf „Heute“. "module" lädt die Datei, die die Kachel zeichnet (export widgets = { id: render }).
 // head = Abschnittsüberschrift über der Gruppe, link = „Alle ›“ rechts daneben.

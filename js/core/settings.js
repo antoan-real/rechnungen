@@ -40,7 +40,9 @@ export function applyTheme(theme) {
 /** Reihenfolge aller Bereiche und welche davon in der Leiste stehen (neue Bereiche werden angehängt). */
 export function navLayout(s = getSettings()) {
   const ids = MODULES.map(m => m.id);
-  const order = [...(s.nav?.order || []).filter(id => ids.includes(id)), ...ids.filter(id => !(s.nav?.order || []).includes(id))];
+  const order = (s.nav?.order || []).filter(id => ids.includes(id));
+  // Neue Bereiche einfügen: Hauptbereiche (main) gleich hinter „Heute“, alle anderen ans Ende
+  for (const m of MODULES) if (!order.includes(m.id)) { if (m.main) order.splice(Math.min(1, order.length), 0, m.id); else order.push(m.id); }
   const barSet = new Set((s.nav?.bar || DEFAULT_BAR).filter(id => ids.includes(id)));
   // Tab-Leiste: höchstens BAR_MAX Bereiche (in der gewählten Reihenfolge), alle übrigen unter „Mehr“
   const bar = order.filter(id => barSet.has(id)).slice(0, BAR_MAX);
