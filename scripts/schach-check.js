@@ -3,8 +3,9 @@
 import { readFileSync } from "fs";
 const html = readFileSync(new URL("../schach.html", import.meta.url), "utf8");
 const part = (a, b) => html.slice(html.indexOf(a), html.indexOf(b) + b.length);
-const code = part("/*ENGINE-START*/", "/*ENGINE-END*/") + "\n" + part("/*CONTENT-START*/", "/*CONTENT-END*/") + "\nreturn { Chess, COURSES, MUSTERPARTIEN };";
-const { Chess, COURSES, MUSTERPARTIEN } = new Function(code)();
+const code = [part("/*ENGINE-START*/", "/*ENGINE-END*/"), part("/*CONTENT-START*/", "/*CONTENT-END*/"),
+  "return { Chess, Engine, COURSES, MUSTERPARTIEN, TAKTIK: typeof TAKTIK !== 'undefined' ? TAKTIK : [] };"].join("\n");
+const { Chess, Engine, COURSES, MUSTERPARTIEN, TAKTIK } = new Function(code)();
 
 let fails = 0;
 const perft = (p, d) => d ? Chess.legalMoves(p).reduce((n, m) => n + perft(Chess.make(p, m), d - 1), 0) : 1;
@@ -23,5 +24,21 @@ for (const c of COURSES) for (const l of c.lines) {
   if (r.error || !r.moves.length) { fails++; console.log(`FEHLER ${c.id}/${l.key}:`, r.error || "keine Züge"); }
 }
 for (const [k, g] of Object.entries(MUSTERPARTIEN)) { const r = Chess.parsePgn(g.pgn); if (r.error) { fails++; console.log(`FEHLER Partie ${k}:`, r.error); } }
+// Taktikaufgaben: Lösung und Alternativen legal, Mattaufgaben enden wirklich mit Matt, keine doppelten Stellungen
+const fens = new Set();
+for (const t of TAKTIK) {
+  let p; try { p = Chess.fromFEN(t.fen); } catch (e) { fails++; console.log(`FEHLER Aufgabe ${t.id}: FEN`, e.message); continue; }
+  if (fens.has(t.fen)) { fails++; console.log(`FEHLER Aufgabe ${t.id}: doppelt`); } fens.add(t.fen);
+  const start = p;
+  for (const [i, u] of t.line.entries()) {
+    const m = Chess.legalMoves(p).find(x => Chess.uci(x) === u);
+    if (!m) { fails++; console.log(`FEHLER Aufgabe ${t.id}: Zug ${i + 1} (${u}) nicht legal`); break; }
+    for (const a of t.alts.filter(a => a.ply === i)) if (!Chess.legalMoves(p).some(x => Chess.uci(x) === a.uci)) { fails++; console.log(`FEHLER Aufgabe ${t.id}: Alternative ${a.uci} nicht legal`); }
+    p = Chess.make(p, m);
+  }
+  if (t.san[t.san.length - 1].endsWith("#") && (Chess.legalMoves(p).length || !Chess.inCheck(p))) { fails++; console.log(`FEHLER Aufgabe ${t.id}: kein Matt am Ende`); }
+  if (t.line.length % 2 === 0) { fails++; console.log(`FEHLER Aufgabe ${t.id}: Lösung muss mit eigenem Zug enden`); }
+}
+console.log(`${TAKTIK.length} Taktikaufgaben geprüft`);
 console.log(`${lines} Varianten, ${Object.keys(MUSTERPARTIEN).length} Musterpartien geprüft – ${fails ? fails + " Fehler" : "alles legal, Perft korrekt"}`);
 process.exit(fails ? 1 : 0);

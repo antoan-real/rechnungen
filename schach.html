@@ -134,14 +134,14 @@ footer.note { color: var(--muted); font-size: 13px; margin-top: 30px }
 .promo button { width: 64px; height: 64px; border: 0; border-radius: 8px; background: var(--panel-2) center/80% no-repeat; cursor: pointer }
 @media (max-width: 899px) { .wrap.train { padding-left: 8px; padding-right: 8px }
   /* am Handy: Steuerung und Erklärung direkt unter dem Brett */
-  #t-ctrl { order: -3 } .comment { order: -2 } #t-end { order: -1 } }
+  #t-ctrl, #s-ctrl { order: -3 } .comment { order: -2 } #t-end { order: -1 } }
 </style>
 </head>
 <body>
 <header class="top"><div class="top-in">
   <a class="logo" href="#/"><svg viewBox="0 0 45 45" aria-hidden="true"><rect width="45" height="45" rx="10" fill="#5E8F32"/><g transform="translate(4.5 4) scale(.8)" id="logo-knight"></g></svg><span class="logo-t">Schach</span></a>
   <nav class="nav" id="nav">
-    <a href="#/">Start</a><a href="#/eroeffnungen">Eröffnungen</a><a href="#/eigene">Eigene Kurse</a><a href="#/fortschritt">Fortschritt</a>
+    <a href="#/">Start</a><a href="#/eroeffnungen">Eröffnungen</a><a href="#/taktik">Taktik</a><a href="#/sicherheit">Sicherheit</a><a href="#/eigene">Eigene Kurse</a><a href="#/fortschritt">Fortschritt</a>
   </nav>
   <button type="button" class="btn icon" id="theme-btn" style="margin-left:auto;flex:none;background:none" aria-label="Hell/Dunkel umschalten"></button>
 </div></header>
@@ -390,6 +390,100 @@ const Chess = (() => {
   }
   return { START, FILES, sqName, sqIndex, colorOf, fromFEN, toFEN, legalMoves, make, inCheck, attacked, san, parseSan, uci, Game, parsePgn, insufficient, DE };
 })();
+// Suche und Bewertung: Alpha-Beta mit Ruhesuche. Dient zum Prüfen der Aufgaben und als Gegnerlogik.
+const Engine = (() => {
+  const VAL = { P: 100, N: 320, B: 330, R: 500, Q: 900, K: 0 };
+  const MATE = 100000;
+  // einfache Feldtabellen (aus Sicht von Weiß, a1 = 0)
+  const center = sq => { const f = sq & 7, r = sq >> 3; return 3.5 - Math.max(Math.abs(f - 3.5), Math.abs(r - 3.5)); };
+  function pst(t, sq, white, endgame) {
+    const r = white ? sq >> 3 : 7 - (sq >> 3), c = center(sq);
+    if (t === "P") return r * 6 + (c > 2 ? 8 : 0) - (r === 1 && c > 2 ? 0 : 0);
+    if (t === "N") return c * 8 - 10;
+    if (t === "B") return c * 4;
+    if (t === "R") return r === 6 ? 15 : 0;
+    if (t === "Q") return c * 2;
+    if (t === "K") return endgame ? c * 10 : (r === 0 ? 10 : -15 * r) - (c > 2 ? 10 : 0);
+    return 0;
+  }
+  function evaluate(p) {
+    let s = 0, mat = 0;
+    for (const c of p.board) if (c && c.toUpperCase() !== "K" && c.toUpperCase() !== "P") mat += VAL[c.toUpperCase()];
+    const endgame = mat <= 2600;
+    p.board.forEach((c, sq) => { if (!c) return; const t = c.toUpperCase(), w = c === t; s += (w ? 1 : -1) * (VAL[t] + pst(t, sq, w, endgame)); });
+    return p.turn === "w" ? s : -s;
+  }
+  const isCapture = m => !!m.captured || !!m.promo;
+  function order(moves) {
+    return moves.map(m => ({ m, k: (m.captured ? 10 * VAL[m.captured.toUpperCase()] - VAL[m.piece.toUpperCase()] / 10 + 1000 : 0) + (m.promo ? 800 : 0) }))
+      .sort((a, b) => b.k - a.k).map(x => x.m);
+  }
+  let nodes = 0;
+  function quiesce(p, alpha, beta, ply) {
+    nodes++;
+    const inChk = Chess.inCheck(p);
+    const moves = Chess.legalMoves(p);
+    if (!moves.length) return inChk ? -MATE + ply : 0;
+    if (!inChk) {
+      const stand = evaluate(p);
+      if (stand >= beta) return stand;
+      if (stand > alpha) alpha = stand;
+    }
+    for (const m of order(inChk ? moves : moves.filter(isCapture))) {
+      const v = -quiesce(Chess.make(p, m), -beta, -alpha, ply + 1);
+      if (v >= beta) return v;
+      if (v > alpha) alpha = v;
+    }
+    return alpha;
+  }
+  function search(p, depth, alpha, beta, ply) {
+    if (depth <= 0) return quiesce(p, alpha, beta, ply);
+    nodes++;
+    const moves = Chess.legalMoves(p);
+    if (!moves.length) return Chess.inCheck(p) ? -MATE + ply : 0;
+    if (p.half >= 100) return 0;
+    const ext = Chess.inCheck(p) ? 1 : 0; // Schach verlängert die Suche
+    let best = -Infinity;
+    for (const m of order(moves)) {
+      const v = -search(Chess.make(p, m), depth - 1 + ext * (ply < 8 ? 1 : 0), -beta, -alpha, ply + 1);
+      if (v > best) best = v;
+      if (v > alpha) alpha = v;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+  /** Alle Züge mit genauer Bewertung (für Prüfungen und Analyse); depth in Halbzügen */
+  function rootScores(p, depth) {
+    nodes = 0;
+    return order(Chess.legalMoves(p)).map(m => ({ move: m, score: -search(Chess.make(p, m), depth - 1, -Infinity, Infinity, 1) }))
+      .sort((a, b) => b.score - a.score);
+  }
+  function best(p, depth) {
+    let bestM = null, bestV = -Infinity, alpha = -Infinity;
+    for (const m of order(Chess.legalMoves(p))) {
+      const v = -search(Chess.make(p, m), depth - 1, -Infinity, -alpha, 1);
+      if (v > bestV) { bestV = v; bestM = m; } if (v > alpha) alpha = v;
+    }
+    return { move: bestM, score: bestV };
+  }
+  /** Statischer Abtausch auf einem Feld: Materialgewinn für die Seite am Zug (mit legalen Schlagzügen, also Fesselungen beachtet) */
+  function see(p, sq) {
+    const caps = Chess.legalMoves(p).filter(m => m.to === sq && m.captured);
+    if (!caps.length) return 0;
+    const m = caps.sort((a, b) => VAL[a.piece.toUpperCase()] - VAL[b.piece.toUpperCase()])[0];
+    const gain = (m.captured.toUpperCase() === "K" ? 0 : VAL[m.captured.toUpperCase()]) + (m.promo ? VAL[m.promo.toUpperCase()] - 100 : 0);
+    return Math.max(0, gain - see(Chess.make(p, m), sq));
+  }
+  /** Figuren der Seite `color`, die der Gegner mit Gewinn schlagen kann („hängende“ Figuren) */
+  function hanging(p, color, min = 1) {
+    const q = color === p.turn ? Object.assign({}, p, { turn: color === "w" ? "b" : "w", ep: -1 }) : p;
+    if (Chess.inCheck(q, color)) return null; // Stellung mit Schach für die andere Seite ist hierfür ungeeignet
+    const out = [];
+    q.board.forEach((c, sq) => { if (c && Chess.colorOf(c) === color && c.toUpperCase() !== "K" && see(q, sq) >= min) out.push(sq); });
+    return out;
+  }
+  return { VAL, MATE, evaluate, search, rootScores, best, see, hanging, get nodes() { return nodes; } };
+})();
 /*ENGINE-END*/
 /*CONTENT-START*/
 // Eröffnungskurse. Züge in deutscher Kurznotation, Kommentare in {…} gehören zum Zug davor.
@@ -513,6 +607,84 @@ const COURSES = [
       { key: "sf6", name: "Moderne Variante mit 2...Sf6", pgn: `1.e4 d5 2.exd5 Sf6 {Schwarz nimmt den Bauern später mit dem Springer zurück.} 3.d4 Sxd5 4.Sf3 g6 {Fianchetto: der Läufer drückt von g7 auf d4.} 5.Le2 Lg7 6.O-O O-O 7.c4 {Weiß gewinnt Raum mit Tempo.} Sb6 8.Sc3 {Schwarz wird später mit ...Sc6 und ...Lg4 gegen d4 spielen.}` }
     ] }
 ];
+// Taktikaufgaben: alle mit der eingebauten Engine geprüft (Lösung eindeutig bester Zug, Gegenzüge beste Verteidigung).
+// line = Lösung in Koordinaten (eigene Züge und Gegenzüge abwechselnd), alts = ebenfalls richtige Züge.
+const MOTIVE = { gabel: "Gabel", fesselung: "Fesselung", spiess: "Spieß", abzug: "Abzug", grundreihe: "Grundreihenmatt", ueberlastung: "Überlastung", ablenkung: "Ablenkung" };
+const MOTIV_TEXT = {
+  gabel: "Eine Figur greift zwei oder mehr Ziele gleichzeitig an – der Gegner kann nur eines retten.",
+  fesselung: "Eine Figur darf nicht ziehen, weil sonst eine wertvollere Figur (oder der König) dahinter angegriffen wäre.",
+  spiess: "Wie eine Fesselung, nur umgekehrt: die wertvollere Figur steht vorn, muss ausweichen und gibt die Figur dahinter preis.",
+  abzug: "Eine Figur zieht weg und gibt dabei die Linie einer anderen Figur frei – zwei Angriffe auf einmal.",
+  grundreihe: "Der König steht hinter seinen eigenen Bauern eingesperrt; ein Turm oder die Dame setzt auf der Grundreihe matt.",
+  ueberlastung: "Eine Figur hat zwei Aufgaben gleichzeitig – erfüllt sie die eine, vernachlässigt sie die andere.",
+  ablenkung: "Ein Opfer lockt einen Verteidiger weg oder auf ein ungünstiges Feld."
+};
+const TAKTIK = [
+  {"id": "t01", "motif": "gabel", "level": 1, "fen": "r3k3/8/8/1N6/8/8/8/4K3 w - - 0 1", "line": ["b5c7"], "san": ["Sc7+"], "alts": [], "text": "Der Springer greift König und Turm gleichzeitig an. Nach dem Königszug fällt der Turm auf a8."},
+  {"id": "t02", "motif": "gabel", "level": 1, "fen": "4k3/8/8/8/1n6/8/8/R3K3 b - - 0 1", "line": ["b4c2"], "san": ["Sc2+"], "alts": [], "text": "Der Springer greift König und Turm gleichzeitig an. Nach dem Königszug fällt der Turm auf a1."},
+  {"id": "t03", "motif": "gabel", "level": 1, "fen": "6k1/5pp1/7p/r7/8/8/5PPP/3Q2K1 w - - 0 1", "line": ["d1d8"], "san": ["Dd8+"], "alts": [], "text": "Schach mit gleichzeitigem Angriff auf den ungedeckten Turm a5 – nach dem Königszug schlägt die Dame den Turm."},
+  {"id": "t04", "motif": "gabel", "level": 1, "fen": "3q2k1/5ppp/8/8/R7/7P/5PP1/6K1 b - - 0 1", "line": ["d8d1"], "san": ["Dd1+"], "alts": [], "text": "Schach mit gleichzeitigem Angriff auf den ungedeckten Turm a4 – nach dem Königszug schlägt die Dame den Turm."},
+  {"id": "t05", "motif": "gabel", "level": 1, "fen": "4k3/8/8/2n1b3/8/2PP4/8/7K w - - 0 1", "line": ["d3d4"], "san": ["d4"], "alts": [], "text": "Bauerngabel: Der gedeckte Bauer greift Springer und Läufer an – eine der beiden Figuren geht verloren."},
+  {"id": "t06", "motif": "gabel", "level": 1, "fen": "7k/8/2pp4/8/2N1B3/8/8/4K3 b - - 0 1", "line": ["d6d5"], "san": ["d5"], "alts": [], "text": "Bauerngabel: Der gedeckte Bauer greift Springer und Läufer an – eine der beiden Figuren geht verloren."},
+  {"id": "t07", "motif": "gabel", "level": 1, "fen": "2q3k1/5ppp/8/3N4/8/8/5PPP/6K1 w - - 0 1", "line": ["d5e7"], "san": ["Se7+"], "alts": [], "text": "Springergabel auf e7: Schach und gleichzeitig Angriff auf die Dame c8."},
+  {"id": "t08", "motif": "gabel", "level": 1, "fen": "6k1/5ppp/8/8/3n4/8/5PPP/2Q3K1 b - - 0 1", "line": ["d4e2"], "san": ["Se2+"], "alts": [], "text": "Springergabel auf e2: Schach und gleichzeitig Angriff auf die Dame c1."},
+  {"id": "t09", "motif": "gabel", "level": 1, "fen": "r5k1/6pp/8/8/8/8/6PP/3Q2K1 w - - 0 1", "line": ["d1d5"], "san": ["Dd5+"], "alts": [], "text": "Die Dame bietet Schach und greift entlang der Diagonale den Turm a8 an."},
+  {"id": "t10", "motif": "gabel", "level": 1, "fen": "3q2k1/6pp/8/8/8/8/6PP/R5K1 b - - 0 1", "line": ["d8d4"], "san": ["Dd4+"], "alts": [], "text": "Die Dame bietet Schach und greift entlang der Diagonale den Turm a1 an."},
+  {"id": "t11", "motif": "gabel", "level": 1, "fen": "3k4/8/8/q3N3/8/8/8/7K w - - 0 1", "line": ["e5c6"], "san": ["Sc6+"], "alts": [], "text": "Von c6 greift der Springer König d8 und Dame a5 zugleich an."},
+  {"id": "t12", "motif": "gabel", "level": 1, "fen": "7k/8/8/8/Q3n3/8/8/3K4 b - - 0 1", "line": ["e4c3"], "san": ["Sc3+"], "alts": [], "text": "Von c3 greift der Springer König d1 und Dame a4 zugleich an."},
+  {"id": "t13", "motif": "fesselung", "level": 1, "fen": "4k3/8/8/8/4q3/8/8/3R1K2 w - - 0 1", "line": ["d1e1"], "san": ["Te1"], "alts": [], "text": "Der Turm fesselt die Dame an den König. Schlägt sie den Turm, nimmt der König zurück."},
+  {"id": "t14", "motif": "fesselung", "level": 1, "fen": "3r1k2/8/8/4Q3/8/8/8/4K3 b - - 0 1", "line": ["d8e8"], "san": ["Te8"], "alts": [], "text": "Der Turm fesselt die Dame an den König. Schlägt sie den Turm, nimmt der König zurück."},
+  {"id": "t15", "motif": "fesselung", "level": 1, "fen": "4k3/8/2q5/8/P7/8/8/4KB2 w - - 0 1", "line": ["f1b5"], "san": ["Lb5"], "alts": [], "text": "Der Läufer fesselt die Dame an den König; er ist durch den Bauern a4 gedeckt."},
+  {"id": "t16", "motif": "fesselung", "level": 1, "fen": "4kb2/8/8/p7/8/2Q5/8/4K3 b - - 0 1", "line": ["f8b4"], "san": ["Lb4"], "alts": [], "text": "Der Läufer fesselt die Dame an den König; er ist durch den Bauern a5 gedeckt."},
+  {"id": "t17", "motif": "fesselung", "level": 1, "fen": "3k4/8/2p5/3n4/8/8/4P3/3RK3 w - - 0 1", "line": ["e2e4"], "san": ["e4"], "alts": [], "text": "Der Springer ist gegen den König auf der d-Linie gefesselt. Der Bauernangriff gewinnt ihn."},
+  {"id": "t18", "motif": "fesselung", "level": 1, "fen": "3rk3/4p3/8/8/3N4/2P5/8/3K4 b - - 0 1", "line": ["e7e5"], "san": ["e5"], "alts": [], "text": "Der Springer ist gegen den König auf der d-Linie gefesselt. Der Bauernangriff gewinnt ihn."},
+  {"id": "t19", "motif": "fesselung", "level": 1, "fen": "4k3/3q4/8/8/P7/8/8/4KB2 w - - 0 1", "line": ["f1b5"], "san": ["Lb5"], "alts": [], "text": "Die Dame ist nach Lb5 an den König gefesselt und geht gegen den Läufer verloren."},
+  {"id": "t20", "motif": "fesselung", "level": 1, "fen": "4kb2/8/8/p7/8/8/3Q4/4K3 b - - 0 1", "line": ["f8b4"], "san": ["Lb4"], "alts": [], "text": "Die Dame ist nach Lb5 an den König gefesselt und geht gegen den Läufer verloren."},
+  {"id": "t21", "motif": "fesselung", "level": 2, "fen": "3r2k1/5ppp/8/2b5/8/8/3R1PPP/4K3 b - - 0 1", "line": ["c5b4"], "san": ["Lb4"], "alts": [], "text": "Der Läufer fesselt den Turm d2 an den König; der Turm wird zweimal angegriffen und geht verloren."},
+  {"id": "t22", "motif": "fesselung", "level": 2, "fen": "4k3/3r1ppp/8/8/2B5/8/5PPP/3R2K1 w - - 0 1", "line": ["c4b5"], "san": ["Lb5"], "alts": [], "text": "Der Läufer fesselt den Turm d7 an den König; der Turm wird zweimal angegriffen und geht verloren."},
+  {"id": "t23", "motif": "spiess", "level": 1, "fen": "r7/8/2k5/5B2/8/8/8/4K3 w - - 0 1", "line": ["f5e4"], "san": ["Le4+"], "alts": [], "text": "Spieß: Der König muss die Diagonale verlassen, danach schlägt der Läufer den Turm a8."},
+  {"id": "t24", "motif": "spiess", "level": 1, "fen": "4k3/8/8/8/5b2/2K5/8/R7 b - - 0 1", "line": ["f4e5"], "san": ["Le5+"], "alts": [], "text": "Spieß: Der König muss die Diagonale verlassen, danach schlägt der Läufer den Turm a1."},
+  {"id": "t25", "motif": "spiess", "level": 1, "fen": "3q4/8/8/3k4/8/8/8/R3K3 w - - 0 1", "line": ["a1d1"], "san": ["Td1+"], "alts": [], "text": "Der Turm gibt Schach auf der d-Linie; hinter dem König steht die Dame."},
+  {"id": "t26", "motif": "spiess", "level": 1, "fen": "r3k3/8/8/8/3K4/8/8/3Q4 b - - 0 1", "line": ["a8d8"], "san": ["Td8+"], "alts": [], "text": "Der Turm gibt Schach auf der d-Linie; hinter dem König steht die Dame."},
+  {"id": "t27", "motif": "spiess", "level": 1, "fen": "R7/8/8/6k1/8/8/2b5/7K b - - 0 1", "line": ["c2e4"], "san": ["Le4+"], "alts": [], "text": "Schach auf der langen Diagonale – hinter dem König steht der Turm a8."},
+  {"id": "t28", "motif": "spiess", "level": 1, "fen": "7k/2B5/8/8/6K1/8/8/r7 w - - 0 1", "line": ["c7e5"], "san": ["Le5+"], "alts": [], "text": "Schach auf der langen Diagonale – hinter dem König steht der Turm a1."},
+  {"id": "t29", "motif": "spiess", "level": 1, "fen": "q3k3/8/8/8/7Q/8/8/4K3 w - - 0 1", "line": ["h4h8"], "san": ["Dh8+"], "alts": [], "text": "Schach auf der 8. Reihe; nach dem Königszug schlägt die Dame die Dame a8."},
+  {"id": "t30", "motif": "spiess", "level": 1, "fen": "4k3/8/8/7q/8/8/8/Q3K3 b - - 0 1", "line": ["h5h1"], "san": ["Dh1+"], "alts": [], "text": "Schach auf der 1. Reihe; nach dem Königszug schlägt die Dame die Dame a1."},
+  {"id": "t31", "motif": "spiess", "level": 1, "fen": "4k2r/8/8/8/8/8/R3K3/8 b - - 0 1", "line": ["h8h2"], "san": ["Th2+"], "alts": [], "text": "Schach auf der 2. Reihe – hinter dem König steht der Turm a2."},
+  {"id": "t32", "motif": "spiess", "level": 1, "fen": "8/r3k3/8/8/8/8/8/4K2R w - - 0 1", "line": ["h1h7"], "san": ["Th7+"], "alts": [], "text": "Schach auf der 7. Reihe – hinter dem König steht der Turm a7."},
+  {"id": "t33", "motif": "spiess", "level": 2, "fen": "8/r5k1/4P3/8/8/8/8/3R2K1 w - - 0 1", "line": ["d1d7"], "san": ["Td7+"], "alts": [], "text": "Schach auf der 7. Reihe, der Bauer e6 deckt den Turm – danach fällt der Turm a7."},
+  {"id": "t34", "motif": "spiess", "level": 2, "fen": "3r2k1/8/8/8/8/4p3/R5K1/8 b - - 0 1", "line": ["d8d2"], "san": ["Td2+"], "alts": [], "text": "Schach auf der 2. Reihe, der Bauer e3 deckt den Turm – danach fällt der Turm a2."},
+  {"id": "t35", "motif": "spiess", "level": 2, "fen": "4k2r/8/8/4q3/8/8/1P1B4/6K1 w - - 0 1", "line": ["d2c3"], "san": ["Lc3"], "alts": [], "text": "Der Läufer greift die Dame an; weicht sie aus, fällt der Turm h8 auf derselben Diagonale."},
+  {"id": "t36", "motif": "spiess", "level": 2, "fen": "6k1/1p1b4/8/8/4Q3/8/8/4K2R b - - 0 1", "line": ["d7c6"], "san": ["Lc6"], "alts": [], "text": "Der Läufer greift die Dame an; weicht sie aus, fällt der Turm h1 auf derselben Diagonale."},
+  {"id": "t37", "motif": "abzug", "level": 1, "fen": "q3k3/8/8/8/8/8/4B3/4R1K1 w - - 0 1", "line": ["e2f3"], "san": ["Lf3+"], "alts": [], "text": "Abzugsschach: Der Läufer zieht mit Angriff auf die Dame, der Turm gibt Schach."},
+  {"id": "t38", "motif": "abzug", "level": 1, "fen": "4r1k1/4b3/8/8/8/8/8/Q3K3 b - - 0 1", "line": ["e7f6"], "san": ["Lf6+"], "alts": [], "text": "Abzugsschach: Der Läufer zieht mit Angriff auf die Dame, der Turm gibt Schach."},
+  {"id": "t39", "motif": "abzug", "level": 1, "fen": "1q1k4/8/8/8/3N4/8/5PPP/3R2K1 w - - 0 1", "line": ["d4c6"], "san": ["Sc6+"], "alts": [], "text": "Abzugsschach durch den Turm d1, und der Springer greift die Dame b8 an."},
+  {"id": "t40", "motif": "abzug", "level": 1, "fen": "3r2k1/5ppp/8/3n4/8/8/8/1Q1K4 b - - 0 1", "line": ["d5c3"], "san": ["Sc3+"], "alts": [], "text": "Abzugsschach durch den Turm d8, und der Springer greift die Dame b1 an."},
+  {"id": "t41", "motif": "abzug", "level": 2, "fen": "5rk1/3q1ppp/8/8/8/3B4/5PPP/3Q2K1 w - - 0 1", "line": ["d3h7", "g8h7", "d1d7"], "san": ["Lxh7+", "Kxh7", "Dxd7"], "alts": [], "text": "Der Läufer schlägt mit Schach und gibt die d-Linie frei – die Dame d7 ist verloren."},
+  {"id": "t42", "motif": "abzug", "level": 2, "fen": "3q2k1/5ppp/3b4/8/8/8/3Q1PPP/5RK1 b - - 0 1", "line": ["d6h2", "g1h2", "d8d2"], "san": ["Lxh2+", "Kxh2", "Dxd2"], "alts": [], "text": "Der Läufer schlägt mit Schach und gibt die d-Linie frei – die Dame d2 ist verloren."},
+  {"id": "t43", "motif": "grundreihe", "level": 1, "fen": "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", "line": ["d1d8"], "san": ["Td8#"], "alts": [], "text": "Der König ist hinter seinen eigenen Bauern eingesperrt."},
+  {"id": "t44", "motif": "grundreihe", "level": 1, "fen": "3r2k1/5ppp/8/8/8/8/5PPP/6K1 b - - 0 1", "line": ["d8d1"], "san": ["Td1#"], "alts": [], "text": "Der König ist hinter seinen eigenen Bauern eingesperrt."},
+  {"id": "t45", "motif": "grundreihe", "level": 1, "fen": "6k1/5ppp/8/8/8/8/5PPP/1Q4K1 w - - 0 1", "line": ["b1b8"], "san": ["Db8#"], "alts": [], "text": "Die Dame dringt auf die ungeschützte Grundreihe ein."},
+  {"id": "t46", "motif": "grundreihe", "level": 1, "fen": "1q4k1/5ppp/8/8/8/8/5PPP/6K1 b - - 0 1", "line": ["b8b1"], "san": ["Db1#"], "alts": [], "text": "Die Dame dringt auf die ungeschützte Grundreihe ein."},
+  {"id": "t47", "motif": "grundreihe", "level": 1, "fen": "3r2k1/5ppp/8/8/8/8/3R1PPP/3R2K1 w - - 0 1", "line": ["d2d8"], "san": ["Txd8#"], "alts": [], "text": "Der Turm schlägt den einzigen Verteidiger der Grundreihe, der zweite Turm deckt."},
+  {"id": "t48", "motif": "grundreihe", "level": 1, "fen": "3r2k1/3r1ppp/8/8/8/8/5PPP/3R2K1 b - - 0 1", "line": ["d7d1"], "san": ["Txd1#"], "alts": [], "text": "Der Turm schlägt den einzigen Verteidiger der Grundreihe, der zweite Turm deckt."},
+  {"id": "t49", "motif": "grundreihe", "level": 1, "fen": "4r1k1/5ppp/8/8/8/8/4QPPP/6K1 w - - 0 1", "line": ["e2e8"], "san": ["Dxe8#"], "alts": [], "text": "Der Turm e8 ist ungedeckt, und die Grundreihe hat kein Luftloch."},
+  {"id": "t50", "motif": "grundreihe", "level": 1, "fen": "6k1/4qppp/8/8/8/8/5PPP/4R1K1 b - - 0 1", "line": ["e7e1"], "san": ["Dxe1#"], "alts": [], "text": "Der Turm e1 ist ungedeckt, und die Grundreihe hat kein Luftloch."},
+  {"id": "t51", "motif": "grundreihe", "level": 2, "fen": "6k1/2q2ppp/8/8/8/8/3Q1PPP/3R2K1 w - - 0 1", "line": ["d2d8", "c7d8", "d1d8"], "san": ["Dd8+", "Dxd8", "Txd8#"], "alts": [], "text": "Das Damenopfer lenkt die schwarze Dame ab, der Turm setzt auf der Grundreihe matt."},
+  {"id": "t52", "motif": "grundreihe", "level": 2, "fen": "3r2k1/3q1ppp/8/8/8/8/2Q2PPP/6K1 b - - 0 1", "line": ["d7d1", "c2d1", "d8d1"], "san": ["Dd1+", "Dxd1", "Txd1#"], "alts": [], "text": "Das Damenopfer lenkt die weiße Dame ab, der Turm setzt auf der Grundreihe matt."},
+  {"id": "t53", "motif": "grundreihe", "level": 2, "fen": "2r3k1/5ppp/8/8/8/8/3R1PPP/3R2K1 w - - 0 1", "line": ["d2d8", "c8d8", "d1d8"], "san": ["Td8+", "Txd8", "Txd8#"], "alts": [], "text": "Der erste Turm opfert sich, der zweite setzt matt."},
+  {"id": "t54", "motif": "grundreihe", "level": 2, "fen": "3r2k1/3r1ppp/8/8/8/8/5PPP/2R3K1 b - - 0 1", "line": ["d7d1", "c1d1", "d8d1"], "san": ["Td1+", "Txd1", "Txd1#"], "alts": [], "text": "Der erste Turm opfert sich, der zweite setzt matt."},
+  {"id": "t55", "motif": "ueberlastung", "level": 2, "fen": "6k1/1r1q1ppp/8/8/8/8/5PPP/1R2Q1K1 w - - 0 1", "line": ["b1b7"], "san": ["Txb7"], "alts": [], "text": "Die Dame d7 deckt den Turm b7 und das Feld e8. Schlägt sie zurück, folgt De8#."},
+  {"id": "t56", "motif": "ueberlastung", "level": 2, "fen": "1r2q1k1/5ppp/8/8/8/8/1R1Q1PPP/6K1 b - - 0 1", "line": ["b8b2"], "san": ["Txb2"], "alts": [], "text": "Die Dame d2 deckt den Turm b2 und das Feld e1. Schlägt sie zurück, folgt De8#."},
+  {"id": "t57", "motif": "ueberlastung", "level": 2, "fen": "4r1k1/5ppp/8/Q7/4b3/8/5PPP/4R1K1 w - - 0 1", "line": ["e1e4"], "san": ["Txe4"], "alts": [{"ply": 0, "uci": "a5d5"}, {"ply": 0, "uci": "a5a4"}], "text": "Der Turm e8 muss den Läufer und die Grundreihe decken. Schlägt er auf e4 zurück, folgt Dd8+ mit Matt."},
+  {"id": "t58", "motif": "ueberlastung", "level": 2, "fen": "4r1k1/5ppp/8/4B3/q7/8/5PPP/4R1K1 b - - 0 1", "line": ["e8e5"], "san": ["Txe5"], "alts": [{"ply": 0, "uci": "a4d4"}, {"ply": 0, "uci": "a4a5"}], "text": "Der Turm e1 muss den Läufer und die Grundreihe decken. Schlägt er auf e5 zurück, folgt Dd8+ mit Matt."},
+  {"id": "t59", "motif": "ablenkung", "level": 2, "fen": "4r2k/6pp/7N/3Q4/8/8/6PP/6K1 w - - 0 1", "line": ["d5g8", "e8g8", "h6f7"], "san": ["Dg8+", "Txg8", "Sf7#"], "alts": [], "text": "Erstickt matt: Das Damenopfer lockt den Turm nach g8, wo er seinem König das letzte Fluchtfeld nimmt."},
+  {"id": "t60", "motif": "ablenkung", "level": 2, "fen": "6k1/6pp/8/8/3q4/7n/6PP/4R2K b - - 0 1", "line": ["d4g1", "e1g1", "h3f2"], "san": ["Dg1+", "Txg1", "Sf2#"], "alts": [], "text": "Erstickt matt: Das Damenopfer lockt den Turm nach g1, wo er seinem König das letzte Fluchtfeld nimmt."},
+  {"id": "t61", "motif": "ablenkung", "level": 2, "fen": "5rk1/5ppp/5n2/8/8/3B1R1Q/6PP/6K1 w - - 0 1", "line": ["f3f6"], "san": ["Txf6"], "alts": [], "text": "Der Springer f6 ist der einzige Verteidiger von h7. Der Turm beseitigt ihn – nach ...gxf6 folgt Dxh7#."},
+  {"id": "t62", "motif": "ablenkung", "level": 2, "fen": "6k1/6pp/3b1r1q/8/8/5N2/5PPP/5RK1 b - - 0 1", "line": ["f6f3"], "san": ["Txf3"], "alts": [], "text": "Der Springer f3 ist der einzige Verteidiger von h2. Der Turm beseitigt ihn – nach ...gxf6 folgt Dxh7#."},
+  {"id": "t63", "motif": "ablenkung", "level": 2, "fen": "5rk1/5ppp/5n2/8/6P1/3B3Q/5P1P/6K1 w - - 0 1", "line": ["g4g5"], "san": ["g5"], "alts": [], "text": "Der Springer f6 verteidigt h7. Der Bauer vertreibt ihn – dann droht Dxh7#."},
+  {"id": "t64", "motif": "ablenkung", "level": 2, "fen": "6k1/5p1p/3b3q/6p1/8/5N2/5PPP/5RK1 b - - 0 1", "line": ["g5g4"], "san": ["g4"], "alts": [], "text": "Der Springer f3 verteidigt h2. Der Bauer vertreibt ihn – dann droht Dxh7#."}
+];
 /*CONTENT-END*/
 /*APP-START*/
 "use strict";
@@ -578,11 +750,11 @@ const SRS = {
     Store.data.srs[id] = s; touchDay(); Store.save();
   },
   /** Abfrage-Ergebnis: fehlerfrei → nächste Stufe; mit Fehlern → zurück auf Stufe 1, morgen wieder */
-  result(id, ok) {
+  result(id, ok, statKey = "quiz") {
     const s = this.get(id) || { box: 0, reps: 0, lapses: 0, learned: true };
     s.learned = true; s.reps = (s.reps || 0) + 1; s.last = isoDay();
-    if (ok) { const box = Math.min(s.box || 0, INTERVALS.length - 1); s.due = addDays(isoDay(), INTERVALS[box]); s.box = Math.min(box + 1, INTERVALS.length - 1); Store.data.stats.quizOk++; }
-    else { s.box = 0; s.due = addDays(isoDay(), 1); s.lapses = (s.lapses || 0) + 1; Store.data.stats.quizFail++; }
+    if (ok) { const box = Math.min(s.box || 0, INTERVALS.length - 1); s.due = addDays(isoDay(), INTERVALS[box]); s.box = Math.min(box + 1, INTERVALS.length - 1); Store.data.stats[statKey + "Ok"] = (Store.data.stats[statKey + "Ok"] || 0) + 1; }
+    else { s.box = 0; s.due = addDays(isoDay(), 1); s.lapses = (s.lapses || 0) + 1; Store.data.stats[statKey + "Fail"] = (Store.data.stats[statKey + "Fail"] || 0) + 1; }
     Store.data.srs[id] = s; touchDay(); Store.save();
     return s;
   },
@@ -611,6 +783,14 @@ const Content = {
     };
     for (const c of COURSES) for (const l of c.lines) addLine(c, l, "");
     for (const c of Store.data.own) for (const l of c.lines) addLine(Object.assign({ own: true, level: "eigene" }, c), l, "own-");
+    // Taktikaufgaben: jeder Zug der Lösung muss legal sein, sonst wird die Aufgabe markiert und ausgeblendet
+    for (const t of TAKTIK) {
+      try {
+        let p = Chess.fromFEN(t.fen);
+        t.line.forEach((u, i) => { const m = Chess.legalMoves(p).find(x => Chess.uci(x) === u); if (!m) throw new Error(`Zug ${i + 1} (${t.san[i]}) nicht legal`); p = Chess.make(p, m); });
+        t.error = null;
+      } catch (e) { t.error = e.message; this.errors.push({ where: `Taktikaufgabe ${t.id}`, msg: e.message }); }
+    }
     for (const [k, g] of Object.entries(MUSTERPARTIEN)) {
       const parsed = Chess.parsePgn(g.pgn);
       const entry = { id: k, game: g, parsed, error: parsed.error ? `Zug ${Math.floor(parsed.error.ply / 2) + 1} ${parsed.error.token}: ${parsed.error.reason}` : null };
@@ -620,6 +800,7 @@ const Content = {
   },
   ofCourse(c) { return c.lines.map(l => this.lines.get(`${c.own ? "own-" : ""}${c.id}:${l.key}`)).filter(Boolean); },
   due() { return [...this.lines.values()].filter(e => !e.error && SRS.isDue(e.id)); },
+  duePuzzles() { return TAKTIK.filter(t => !t.error && SRS.isDue("tk:" + t.id)); },
   courseById(id) { return COURSES.find(c => c.id === id) || (Store.data.own.find(c => c.id === id) && Object.assign({ own: true, level: "eigene" }, Store.data.own.find(c => c.id === id))); }
 };
 
@@ -649,7 +830,7 @@ const moveNo = (ply, startTurn = "w") => { const p = ply + (startTurn === "b" ? 
 const ARROW_COLORS = { idea: "rgba(230,120,20,.85)", hint: "rgba(40,120,220,.85)", bad: "rgba(210,50,40,.85)" };
 class Board {
   constructor(host, opts = {}) {
-    this.host = host; this.orientation = opts.orientation || "w"; this.onMove = opts.onMove || (() => false);
+    this.host = host; this.orientation = opts.orientation || "w"; this.onMove = opts.onMove || (() => false); this.onSquare = opts.onSquare || null;
     this.movable = null; this.pos = Chess.fromFEN(Chess.START); this.last = null; this.arrows = []; this.marks = []; this.sel = -1;
     host.innerHTML = `<div class="board-wrap"><div class="board" aria-label="Schachbrett"></div></div>`;
     this.el = $(".board", host);
@@ -698,6 +879,7 @@ class Board {
   down(e) {
     const cell = e.target.closest(".sq"); if (!cell || $(".promo", this.el)) return;
     const sq = +cell.dataset.sq;
+    if (this.onSquare) { this.onSquare(sq); return; }
     if (this.sel >= 0 && this.legalFrom(this.sel).some(m => m.to === sq)) { this.tryMove(this.sel, sq); return; }
     if (!this.legalFrom(sq).length) { if (this.sel >= 0) { this.sel = -1; this.render(); } return; }
     e.preventDefault();
@@ -902,7 +1084,7 @@ function firstNew(level) {
 }
 
 Views.start = root => {
-  const due = Content.due(), lvl = Store.data.level, nxt = firstNew(lvl) || firstNew();
+  const due = Content.due(), duePz = Content.duePuzzles(), lvl = Store.data.level, nxt = firstNew(lvl) || firstNew();
   const all = lineCounts([...Content.lines.values()].filter(e => !e.course.own));
   const qOk = Store.data.stats.quizOk, qFail = Store.data.stats.quizFail;
   root.innerHTML = `
@@ -910,7 +1092,8 @@ Views.start = root => {
       <div class="panel stack">
         <div class="muted small" style="font-weight:700;text-transform:uppercase;letter-spacing:.04em">Heute fällig</div>
         <div class="row" style="align-items:baseline;gap:12px"><span class="big-num">${due.length}</span><span style="font-size:20px;font-weight:700">${due.length === 1 ? "Variante" : "Varianten"}</span></div>
-        <div class="row">${due.length ? `<button class="btn primary big" id="s-review">Wiederholung starten</button>` : `<span class="muted">Alles wiederholt – stark!</span>`}
+        ${duePz.length ? `<div class="row small"><span class="badge due">+ ${duePz.length} Taktikaufgabe${duePz.length === 1 ? "" : "n"}</span><a href="#/taktik">zum Taktiktrainer</a></div>` : ""}
+        <div class="row">${due.length ? `<button class="btn primary big" id="s-review">Wiederholung starten</button>` : `<span class="muted">Alle Varianten wiederholt – stark!</span>`}
           ${nxt ? `<a class="btn ${due.length ? "" : "primary big"}" href="#/ueben/${encodeURIComponent(nxt.id)}/learn">Neue Variante lernen</a>` : ""}</div>
         ${nxt ? `<div class="muted small">Vorschlag: ${esc(nxt.course.title)} – ${esc(nxt.line.name)}</div>` : ""}
       </div>
@@ -928,7 +1111,9 @@ Views.start = root => {
     <div class="grid">
       <a class="panel card" href="#/eroeffnungen"><div class="t"><h3>Eröffnungskurse</h3><span class="badge due">${all.due} fällig</span></div><p class="muted small" style="margin:0">Lernen und abfragen mit Wiederholung in Abständen: Einsteiger und Aufsteiger.</p></a>
       <a class="panel card" href="#/eigene"><div class="t"><h3>Eigene Kurse</h3><span class="badge">${Store.data.own.length}</span></div><p class="muted small" style="margin:0">Füge eigene Varianten als PGN ein und frage sie genauso ab.</p></a>
-      ${[["Figurensicherheit", "Steht meine Figur sicher? Mit 5-Minuten-Modus.", "Etappe 2"], ["Taktiktrainer", "Über 60 Aufgaben nach Motiven sortiert.", "Etappe 2"], ["Endspieltrainer", "Matt mit Dame und Turm, Opposition, Lucena, Philidor.", "Etappe 3"],
+      <a class="panel card" href="#/taktik"><div class="t"><h3>Taktiktrainer</h3><span class="badge due">${Content.duePuzzles().length} fällig</span></div><p class="muted small" style="margin:0">${TAKTIK.length} geprüfte Aufgaben nach Motiven: Gabel, Fesselung, Spieß, Abzug, Grundreihe, Überlastung, Ablenkung.</p></a>
+      <a class="panel card" href="#/sicherheit"><div class="t"><h3>Figurensicherheit</h3><span class="badge">Bestwert ${Store.data.safetyBest || 0}</span></div><p class="muted small" style="margin:0">Steht meine Figur sicher? Mit 5-Minuten-Modus.</p></a>
+      ${[["Endspieltrainer", "Matt mit Dame und Turm, Opposition, Lucena, Philidor.", "Etappe 3"],
         ["Errate den Zug", "Meisterpartien Zug für Zug nachspielen.", "Etappe 3"], ["Partie spielen", "Gegner mit menschenähnlicher Spielstärke.", "Etappe 3"], ["Trainingsplan", "Wochenplan und Statistik.", "Etappe 4"]]
         .map(([t, d, e]) => `<div class="panel card soon-tile"><div class="t"><h3>${t}</h3><span class="badge">${e}</span></div><p class="muted small" style="margin:0">${d}</p></div>`).join("")}
     </div>
@@ -1064,8 +1249,12 @@ Views.fortschritt = root => {
   root.innerHTML = `<h1>Fortschritt</h1>
     <div class="stack">
       <div class="panel"><h2>Eröffnungen</h2><div class="list">${levelRows}</div></div>
+      <div class="panel"><h2>Taktik und Figurensicherheit</h2><div class="list">
+        <div class="li"><div class="nm">Taktikaufgaben gelöst</div><b>${TAKTIK.filter(t => (Store.data.tk || {})[t.id]?.solved).length} / ${TAKTIK.length}</b></div>
+        <div class="li"><div class="nm">Taktik beim ersten Versuch richtig</div><b>${(Store.data.stats.tkOk || 0) + (Store.data.stats.tkFail || 0) ? Math.round((Store.data.stats.tkOk || 0) / ((Store.data.stats.tkOk || 0) + (Store.data.stats.tkFail || 0)) * 100) + " %" : "–"}</b></div>
+        <div class="li"><div class="nm">Figurensicherheit: Bestwert (5 Minuten)</div><b>${Store.data.safetyBest || 0}</b></div></div></div>
       <div class="panel stack"><h2 style="margin:0">Prüfbericht</h2>
-        <p class="small" style="margin:0">Beim Start wurden ${total} Varianten und ${games} Musterpartien mit der eingebauten Zuggenerierung Zug für Zug geprüft.</p>
+        <p class="small" style="margin:0">Beim Start wurden ${total} Varianten, ${games} Musterpartien und ${TAKTIK.length} Taktikaufgaben mit der eingebauten Zuggenerierung Zug für Zug geprüft. Die Taktikaufgaben wurden zusätzlich mit der eingebauten Engine auf Eindeutigkeit geprüft.</p>
         ${Content.errors.length ? `<div class="err">${Content.errors.map(x => `<div><b>${esc(x.where)}</b>: ${esc(x.msg)}</div>`).join("")}</div>` : `<div class="ok">Alle Züge sind legal.</div>`}</div>
       <div class="panel stack"><h2 style="margin:0">Fortschritt sichern (Export)</h2><p class="small muted" style="margin:0">Kopiere den Text und bewahre ihn auf, z. B. in einer Notiz. Er enthält Lernstände und eigene Kurse.</p>
         <textarea class="input" id="x-out" readonly></textarea><div><button class="btn" id="x-copy">Kopieren</button></div></div>
@@ -1090,6 +1279,251 @@ Views.fortschritt = root => {
   $("#x-reset", root).onclick = () => { if (confirm("Wirklich alles zurücksetzen? Das lässt sich nicht rückgängig machen.")) { Store.data = null; try { localStorage.removeItem(STORE_KEY); } catch (e) {} Store.load(); Content.build(); Views.fortschritt(root); } };
 };
 
+
+/* ---------- Taktiktrainer ---------- */
+const LEVEL_NAME = { 1: "Leicht", 2: "Mittel", 3: "Schwer" };
+const tkState = id => (Store.data.tk || (Store.data.tk = {}))[id] || null;
+function puzzleTask(t) {
+  const userMoves = Math.ceil(t.line.length / 2), side = t.fen.split(" ")[1];
+  if (t.san[t.san.length - 1].endsWith("#")) return `${SIDE[side]} am Zug: Matt in ${userMoves}`;
+  return `${SIDE[side]} am Zug: Gewinne Material`;
+}
+let tkSession = { list: [], i: 0, label: "" };
+function startPuzzles(list, label) {
+  list = list.filter(t => !t.error);
+  if (!list.length) { toast("Keine passenden Aufgaben."); return; }
+  tkSession = { list: list.map(t => t.id), i: 0, label };
+  location.hash = `#/aufgabe/${list[0].id}`;
+}
+
+Views.taktik = root => {
+  const due = Content.duePuzzles();
+  const solved = TAKTIK.filter(t => tkState(t.id)?.solved).length;
+  const st = Store.data.stats, ok = st.tkOk || 0, fail = st.tkFail || 0;
+  const motifs = Object.keys(MOTIVE);
+  root.innerHTML = `<h1>Taktiktrainer</h1><p class="muted">${TAKTIK.length} Aufgaben nach Motiven. Falsch gelöste Aufgaben kommen in Abständen wieder (1, 3, 7, 14, 30 Tage).</p>
+    <div class="hero" style="margin-bottom:16px">
+      <div class="panel stack"><div class="row" style="align-items:baseline;gap:12px"><span class="big-num">${due.length}</span><b style="font-size:18px">Wiederholungen fällig</b></div>
+        <div class="row"><button class="btn primary big" id="tk-due" ${due.length ? "" : "disabled"}>Wiederholen</button><button class="btn big" id="tk-mix">Gemischt trainieren</button></div></div>
+      <div class="panel stack"><div class="row" style="justify-content:space-between"><span>Gelöst</span><b>${solved} / ${TAKTIK.length}</b></div>
+        <div class="bar"><i style="width:${solved / TAKTIK.length * 100}%"></i></div>
+        <div class="row" style="justify-content:space-between"><span>Beim ersten Versuch richtig</span><b>${ok + fail ? Math.round(ok / (ok + fail) * 100) + " %" : "–"}</b></div></div>
+    </div>
+    <div class="grid">${motifs.map(m => {
+      const all = TAKTIK.filter(t => t.motif === m), done = all.filter(t => tkState(t.id)?.solved).length;
+      return `<div class="panel card" data-m="${m}"><div class="t"><h3>${MOTIVE[m]}</h3><span class="badge">${done} / ${all.length}</span></div>
+        <p class="muted small" style="margin:0">${esc(MOTIV_TEXT[m])}</p><div class="bar"><i style="width:${done / all.length * 100}%"></i></div>
+        <div class="row">${[1, 2, 3].filter(l => all.some(t => t.level === l)).map(l => `<span class="badge">${LEVEL_NAME[l]}: ${all.filter(t => t.level === l).length}</span>`).join("")}</div></div>`;
+    }).join("")}</div>`;
+  $("#tk-due", root).onclick = () => startPuzzles(due, "Wiederholung");
+  $("#tk-mix", root).onclick = () => {
+    const open = TAKTIK.filter(t => !tkState(t.id)?.solved), pool = open.length ? open : TAKTIK.slice();
+    startPuzzles(pool.sort(() => Math.random() - 0.5).slice(0, 10), "Gemischt");
+  };
+  root.onclick = e => {
+    const c = e.target.closest("[data-m]"); if (!c) return;
+    const list = TAKTIK.filter(t => t.motif === c.dataset.m).sort((a, b) => a.level - b.level || (tkState(a.id)?.solved ? 1 : 0) - (tkState(b.id)?.solved ? 1 : 0));
+    startPuzzles(list, MOTIVE[c.dataset.m]);
+  };
+};
+
+Views.aufgabe = (root, args) => {
+  const t = TAKTIK.find(x => x.id === args[0]);
+  if (!t) { root.innerHTML = `<div class="err">Aufgabe nicht gefunden.</div>`; return; }
+  root.classList.add("train");
+  const side = t.fen.split(" ")[1];
+  const positions = [Chess.fromFEN(t.fen)], lasts = [null];
+  for (const u of t.line) { const p = positions[positions.length - 1], m = Chess.legalMoves(p).find(x => Chess.uci(x) === u); positions.push(Chess.make(p, m)); lasts.push([m.from, m.to]); }
+  let ply = 0, failed = false, done = false, timer = 0;
+  const idx = tkSession.list.indexOf(t.id), inSession = idx >= 0;
+  root.innerHTML = `<div class="trainer"><div id="t-board"></div><div class="side">
+    <div class="panel stack"><div><a href="#/taktik" class="small">‹ Taktik</a></div>
+      <div><h2 style="margin:0">${esc(puzzleTask(t))}</h2><div class="muted small">${MOTIVE[t.motif]} · ${LEVEL_NAME[t.level]}${inSession ? ` · ${esc(tkSession.label)} ${idx + 1} von ${tkSession.list.length}` : ""}</div></div>
+      <div class="status" id="t-status"></div></div>
+    <div class="panel comment" id="t-comment"><span class="muted">Ziehe auf dem Brett. ${t.line.length > 1 ? "Der Gegner antwortet automatisch." : ""}</span></div>
+    <div class="ctrl" id="t-ctrl"><button class="btn" data-go="hint">Tipp</button><button class="btn" data-go="solve">Lösung zeigen</button><button class="btn icon" data-go="flip" aria-label="Brett drehen">${icon("flip")}</button></div>
+    <div id="t-end"></div></div></div>`;
+  const board = new Board($("#t-board", root), { orientation: side, onMove });
+  const status = (txt, cls) => { const s = $("#t-status", root); s.textContent = txt; s.className = "status " + (cls || ""); };
+  function draw() { board.setPosition(positions[ply], lasts[ply]); board.setArrows([]); board.setMarks([]); board.setMovable(!done && ply % 2 === 0 ? side : null); }
+  function onMove(m) {
+    const u = Chess.uci(m);
+    const isAlt = t.alts.some(a => a.ply === ply && a.uci === u);
+    const isMate = t.san[ply].endsWith("#") && (() => { const n = Chess.make(positions[ply], m); return Chess.inCheck(n) && !Chess.legalMoves(n).length; })();
+    if (u === t.line[ply] || isAlt || isMate) {
+      if (isAlt || (isMate && u !== t.line[ply])) {
+        // gleichwertiger Zug: Aufgabe ist gelöst, Stellung nach dem gespielten Zug zeigen
+        positions[ply + 1] = Chess.make(positions[ply], m); lasts[ply + 1] = [m.from, m.to];
+        ply++; draw(); finish(true, `Auch richtig! Die Hauptlösung war ${t.san[ply - 1]}.`); return true;
+      }
+      ply++; draw();
+      if (ply >= t.line.length) { finish(true); return true; }
+      status("Richtig – weiter!", "good");
+      timer = setTimeout(() => { ply++; draw(); }, 500);
+      return true;
+    }
+    board.flashWrong(m.from, m.to);
+    if (!failed) { failed = true; status(`${Chess.san(positions[ply], m)} ist nicht die Lösung. Versuche es noch einmal.`, "bad"); }
+    else status("Wieder nicht – nutze „Lösung zeigen“.", "bad");
+    return false;
+  }
+  function showSolution() {
+    failed = true;
+    const u = t.line[ply]; board.setArrows([[u.slice(0, 2), u.slice(2, 4), "hint"]]); status(`Lösung: ${t.san[ply]}`, "bad");
+  }
+  function finish(ok, extra) {
+    done = true; clearTimeout(timer); board.setMovable(null);
+    const first = !failed;
+    const st = Store.data.tk || (Store.data.tk = {});
+    st[t.id] = Object.assign(st[t.id] || { tries: 0 }, { tries: (st[t.id]?.tries || 0) + 1, solved: true, last: isoDay() });
+    const id = "tk:" + t.id, inSrs = !!SRS.get(id);
+    if (!first || inSrs) SRS.result(id, first, "tk");
+    else { Store.data.stats.tkOk = (Store.data.stats.tkOk || 0) + 1; touchDay(); Store.save(); }
+    status(first ? "Gelöst!" : "Gelöst – mit Hilfe", first ? "good" : "bad");
+    $("#t-comment", root).innerHTML = `<b>Lösung: ${t.san.map((s, i) => (i % 2 ? "" : "") + esc(s)).join(" ")}</b><br>${esc(t.text)}${extra ? `<br><span class="ok" style="display:inline-block;margin-top:8px">${esc(extra)}</span>` : ""}`;
+    $("#t-ctrl", root).innerHTML = `<button class="btn" data-go="replay">Lösung nachspielen</button><button class="btn icon" data-go="flip" aria-label="Brett drehen">${icon("flip")}</button>`;
+    const next = inSession && idx + 1 < tkSession.list.length ? tkSession.list[idx + 1] : null;
+    $("#t-end", root).innerHTML = `<div class="panel stack">${first ? "" : `<div class="err">Diese Aufgabe kommt ${relDay(SRS.get(id).due)} wieder.</div>`}
+      <div class="row">${next ? `<a class="btn primary" href="#/aufgabe/${next}">Nächste Aufgabe</a>` : `<a class="btn primary" href="#/taktik">Zur Übersicht</a>`}<button class="btn" data-go="again">Noch einmal</button></div></div>`;
+    if (!next && inSession) tkSession = { list: [], i: 0, label: "" };
+  }
+  root.onclick = e => {
+    const b = e.target.closest("[data-go]"); if (!b) return;
+    if (b.dataset.go === "flip") board.flip();
+    if (b.dataset.go === "hint") { failed = true; const u = t.line[ply]; if (u) { board.setMarks([u.slice(0, 2)]); status("Diese Figur zieht.", ""); } }
+    if (b.dataset.go === "solve") showSolution();
+    if (b.dataset.go === "again") route();
+    if (b.dataset.go === "replay") { let i = 0; ply = 0; draw(); const step = () => { if (i < t.line.length) { ply = ++i; draw(); timer = setTimeout(step, 700); } }; timer = setTimeout(step, 500); }
+  };
+  draw();
+  return () => clearTimeout(timer);
+};
+
+/* ---------- Figurensicherheit: Aufgaben werden aus echten Eröffnungsstellungen erzeugt ---------- */
+// „Hängend“ = der Gegner kann die Figur mit Materialgewinn schlagen (statischer Abtausch mit legalen Zügen, Fesselungen beachtet).
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const PIECE_NAME = { P: "Bauer", N: "Springer", B: "Läufer", R: "Turm", Q: "Dame", K: "König" };
+const PIECE_ACC = { P: "den Bauern", N: "den Springer", B: "den Läufer", R: "den Turm", Q: "die Dame", K: "den König" };
+let safetyPool = null;
+function safetyBases() {
+  if (safetyPool) return safetyPool;
+  safetyPool = [];
+  for (const e of Content.lines.values()) {
+    if (e.error || e.course.own) continue;
+    let p = Chess.fromFEN(e.parsed.fen);
+    e.parsed.moves.forEach((m, i) => { p = Chess.make(p, Chess.legalMoves(p).find(x => Chess.uci(x) === m.uci)); if (i >= 5) safetyPool.push(p); });
+  }
+  return safetyPool;
+}
+/** Erzeugt eine Aufgabe: { pos, last, kind, answer: [Felder], question, explain } */
+function makeSafetyTask(rand) {
+  const bases = safetyBases();
+  for (let attempt = 0; attempt < 400; attempt++) {
+    let p = bases[Math.floor(rand() * bases.length)];
+    // ein paar plausible Züge weiterspielen (keine groben Patzer, damit die Stellungen natürlich bleiben)
+    const extra = Math.floor(rand() * 5);
+    let ok = true;
+    for (let i = 0; i < extra; i++) {
+      const ms = Chess.legalMoves(p); if (!ms.length) { ok = false; break; }
+      const scored = ms.map(m => { const n = Chess.make(p, m); return { m, v: -Engine.evaluate(n) - (Engine.hanging(n, p.turn) || []).length * 200 }; }).sort((a, b) => b.v - a.v);
+      p = Chess.make(p, scored[Math.floor(rand() * Math.min(4, scored.length))].m);
+    }
+    if (!ok || Chess.inCheck(p)) continue;
+    const kind = rand() < 0.5 ? "droht" : "gewinnen";
+    if (kind === "droht") {
+      // Der Gegner (am Zug) spielt einen Zug, der genau eine eigene Figur (keine Bauern) in Gefahr bringt
+      const me = p.turn === "w" ? "b" : "w";
+      if ((Engine.hanging(p, me, 100) || []).length) continue;
+      const cands = Chess.legalMoves(p).filter(m => !m.captured).map(m => ({ m, n: Chess.make(p, m) }))
+        .filter(x => !Chess.inCheck(x.n)).map(x => ({ ...x, h: Engine.hanging(x.n, me, 100) || [], all: Engine.hanging(x.n, me) || [] }))
+        .filter(x => x.h.length === 1 && x.all.length === 1 && x.n.board[x.h[0]].toUpperCase() !== "P" && !(Engine.hanging(x.n, p.turn) || []).includes(x.m.to));
+      if (!cands.length) continue;
+      const c = cands[Math.floor(rand() * cands.length)], sq = c.h[0], pc = c.n.board[sq].toUpperCase();
+      const san = Chess.san(p, c.m);
+      return { pos: c.n, last: [c.m.from, c.m.to], kind, side: me, answer: [sq],
+        question: `${SIDE[p.turn]} hat gerade ${san} gespielt. Welche deiner Figuren ist jetzt in Gefahr?`,
+        explain: `${san} greift ${PIECE_ACC[pc]} auf ${Chess.sqName(sq)} an. ${Chess.attacked(c.n, sq, me) ? "Sie ist zwar gedeckt, aber beim Abtausch verlierst du Material." : "Sie ist ungedeckt."}` };
+    } else {
+      // Du bist am Zug: genau eine gegnerische Figur (keine Bauern) kann mit Gewinn geschlagen werden
+      const them = p.turn === "w" ? "b" : "w";
+      const h = (Engine.hanging(p, them, 100) || []).filter(sq => p.board[sq].toUpperCase() !== "P");
+      const all = Engine.hanging(p, them) || [];
+      if (h.length !== 1 || all.length !== 1) continue;
+      const sq = h[0], pc = p.board[sq].toUpperCase();
+      return { pos: p, last: null, kind, side: p.turn, answer: [sq],
+        question: `${SIDE[p.turn]} am Zug: Welche gegnerische Figur ist nicht ausreichend gedeckt?`,
+        explain: `${PIECE_NAME[pc]} auf ${Chess.sqName(sq)} kann mit Gewinn geschlagen werden – ${Chess.attacked(p, sq, them) ? "die Figur ist zwar gedeckt, aber beim Abtausch gewinnst du Material" : "die Figur ist ungedeckt"}.` };
+    }
+  }
+  return null;
+}
+
+Views.sicherheit = root => {
+  const best = Store.data.safetyBest || 0;
+  root.innerHTML = `<h1>Figurensicherheit</h1><p class="muted">Steht meine Figur sicher? Erkenne ungedeckte Figuren und was der letzte Gegnerzug droht – die wichtigste Gewohnheit gegen Figurenverluste.</p>
+    <div class="grid">
+      <div class="panel stack"><h3>Üben</h3><p class="muted small" style="margin:0">Ohne Zeitdruck, mit Erklärung nach jeder Aufgabe.</p><div><a class="btn primary" href="#/sicherheit-spiel/ueben">Starten</a></div></div>
+      <div class="panel stack"><h3>5 Minuten</h3><p class="muted small" style="margin:0">So viele Aufgaben wie möglich. Ein Fehler kostet 10 Sekunden.</p>
+        <div class="row" style="justify-content:space-between"><a class="btn primary" href="#/sicherheit-spiel/zeit">Los geht's</a><span>Bestwert: <b>${best}</b></span></div></div>
+    </div>
+    <div class="panel" style="margin-top:12px"><h3>So funktioniert's</h3><p class="small" style="margin:0">Tippe auf die Figur, die in Gefahr ist oder die du gewinnen kannst. Als „in Gefahr“ gilt eine Figur, die der Gegner mit Materialgewinn schlagen kann – also ungedeckt ist oder von einer weniger wertvollen Figur angegriffen wird.</p></div>`;
+};
+
+Views["sicherheit-spiel"] = (root, args) => {
+  const timed = args[0] === "zeit";
+  root.classList.add("train");
+  const rand = rng(Date.now() & 0xffffffff);
+  let task = null, score = 0, wrong = 0, end = timed ? Date.now() + 5 * 60000 : 0, tick = 0, answered = false, over = false;
+  root.innerHTML = `<div class="trainer"><div id="t-board"></div><div class="side">
+    <div class="panel stack"><div><a href="#/sicherheit" class="small">‹ Figurensicherheit</a></div>
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">${timed ? "5-Minuten-Modus" : "Üben"}</h2>${timed ? `<b id="s-time" style="font-size:22px"></b>` : ""}</div>
+      <div class="row"><span class="badge due" id="s-score">0 richtig</span><span class="badge err" id="s-wrong">0 falsch</span></div></div>
+    <div class="panel comment" id="s-q"></div>
+    <div class="ctrl" id="s-ctrl"></div><div id="t-end"></div></div></div>`;
+  const board = new Board($("#t-board", root), { onSquare: click });
+  function next() {
+    task = makeSafetyTask(rand); answered = false;
+    if (!task) { $("#s-q", root).textContent = "Gerade lässt sich keine Aufgabe erzeugen."; return; }
+    board.setOrientation(task.side); board.setPosition(task.pos, task.last); board.setArrows([]); board.setMarks([]);
+    $("#s-q", root).innerHTML = `<b>${esc(task.question)}</b>`;
+    $("#s-ctrl", root).innerHTML = timed ? "" : `<button class="btn" data-go="show">Lösung zeigen</button>`;
+  }
+  function click(sq) {
+    if (!task || answered || over) return;
+    const right = task.answer.includes(sq);
+    if (!task.pos.board[sq]) return; // nur Figuren antippen
+    answered = true;
+    if (right) { score++; board.setMarks(task.answer.map(Chess.sqName)); }
+    else { wrong++; board.flashWrong(sq, sq); board.setMarks(task.answer.map(Chess.sqName)); if (timed) end -= 10000; }
+    $("#s-score", root).textContent = `${score} richtig`; $("#s-wrong", root).textContent = `${wrong} falsch`;
+    if (task.last) board.setArrows([[Chess.sqName(task.last[1]), Chess.sqName(task.answer[0]), "bad"]]);
+    $("#s-q", root).innerHTML = `<span class="status ${right ? "good" : "bad"}">${right ? "Richtig!" : "Leider falsch."}</span> ${esc(task.explain)}`;
+    if (timed) setTimeout(() => { if (!over) next(); }, right ? 700 : 1600);
+    else $("#s-ctrl", root).innerHTML = `<button class="btn primary" data-go="next">Nächste Aufgabe</button>`;
+    touchDay(); Store.save();
+  }
+  function stop() {
+    over = true; clearInterval(tick); board.onSquare = null;
+    const best = Store.data.safetyBest || 0, rec = score > best;
+    if (rec) Store.data.safetyBest = score;
+    Store.data.safetyRuns = (Store.data.safetyRuns || 0) + 1; Store.save();
+    $("#s-q", root).innerHTML = `<b>Zeit abgelaufen: ${score} richtig, ${wrong} falsch.</b> ${rec ? "Neuer Bestwert!" : `Bestwert: ${best}`}`;
+    $("#s-ctrl", root).innerHTML = `<button class="btn primary" data-go="again">Noch einmal</button><a class="btn" href="#/sicherheit">Zurück</a>`;
+  }
+  root.onclick = e => {
+    const b = e.target.closest("[data-go]"); if (!b) return;
+    if (b.dataset.go === "next") next();
+    if (b.dataset.go === "again") route();
+    if (b.dataset.go === "show" && task && !answered) { answered = true; board.setMarks(task.answer.map(Chess.sqName)); $("#s-q", root).innerHTML = esc(task.explain); $("#s-ctrl", root).innerHTML = `<button class="btn primary" data-go="next">Nächste Aufgabe</button>`; }
+  };
+  if (timed) {
+    const upd = () => { const left = Math.max(0, end - Date.now()); $("#s-time", root).textContent = `${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, "0")}`; if (!left && !over) stop(); };
+    tick = setInterval(upd, 250); upd();
+  }
+  next();
+  return () => clearInterval(tick);
+};
+
 /* ---------- Router ---------- */
 let cleanup = null;
 function route() {
@@ -1097,7 +1531,7 @@ function route() {
   const parts = (location.hash.replace(/^#\/?/, "") || "").split("/").filter(Boolean);
   const name = parts[0] || "start", view = Views[name] || Views.start;
   const root = $("#app"); root.className = "wrap"; root.onclick = null; root.innerHTML = "";
-  $$("#nav a").forEach(a => a.setAttribute("aria-current", String((a.getAttribute("href").replace("#/", "") || "start") === (["kurs", "ueben", "partie"].includes(name) ? "eroeffnungen" : name) ? "page" : "false")));
+  $$("#nav a").forEach(a => a.setAttribute("aria-current", String((a.getAttribute("href").replace("#/", "") || "start") === (["kurs", "ueben", "partie"].includes(name) ? "eroeffnungen" : name === "aufgabe" ? "taktik" : name === "sicherheit-spiel" ? "sicherheit" : name) ? "page" : "false")));
   cleanup = view(root, parts.slice(1)) || null;
   window.scrollTo(0, 0);
 }

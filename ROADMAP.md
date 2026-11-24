@@ -54,10 +54,11 @@ Jeder Bereich ist ein eigenes Modul unter `js/modules/`, Daten liegen pro Nutzer
 - Etappe 1 ✅: Regel-Engine (Perft-geprüft, Rochade, e.p., Umwandlung, Matt/Patt, Wiederholung, 50 Züge),
   Brett (Klicken/Ziehen, drehbar, Pfeile, letzter Zug, Koordinaten), Eröffnungskurse Lernen/Abfragen mit
   Wiederholung in Abständen (1/3/7/14/30 Tage), Einsteiger + Aufsteiger, eigene Kurse per PGN, Export/Import
-- Etappe 2: Figurensicherheit, Taktiktrainer
+- Etappe 2 ✅: Taktiktrainer (64 Aufgaben, 7 Motive, mit der eingebauten Engine auf Eindeutigkeit geprüft, Wiederholung
+  falsch gelöster Aufgaben), Figurensicherheit (Aufgaben aus Eröffnungsstellungen erzeugt, Übungs- und 5-Minuten-Modus)
 - Etappe 3: Endspieltrainer, „Errate den Zug“, Partien gegen menschenähnlichen Gegner
 - Etappe 4: Fortgeschrittene/Starke Eröffnungen, Trainingsplan, Statistik
-- Prüfung: `node scripts/schach-check.js` (Perft + Legalität aller Varianten und Musterpartien)
+- Prüfung: `node scripts/schach-check.js` (Perft + Legalität aller Varianten, Musterpartien und Taktikaufgaben)
 
 ## Phase 5
 - Englisch lernen
