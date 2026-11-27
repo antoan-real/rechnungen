@@ -105,6 +105,13 @@ footer.note { color: var(--muted); font-size: 13px; margin-top: 30px }
 .moves button.hide { visibility: hidden }
 .status { font-weight: 700 }
 .status.good { color: var(--green) } .status.bad { color: var(--red) }
+.comment > .status:empty { display: none } .comment > .status { margin-bottom: 4px }
+.clockrow { display: flex; align-items: center; gap: 10px; padding: 6px 2px; min-height: 44px }
+.clockrow .pl { font-weight: 700 } .clockrow .src { font-size: 12px; color: var(--muted) } .clockrow .status { font-size: 14px; flex: 1; min-width: 0 }
+.clock { margin-left: auto; font: 700 20px/1 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 8px 12px; border-radius: 8px; background: var(--panel-2); color: var(--muted); min-width: 84px; text-align: center }
+.clock.run { background: var(--ink); color: var(--bg) } .clock.low.run { background: var(--red); color: #fff }
+.chk { display: flex; gap: 10px; align-items: flex-start; cursor: pointer } .chk input { flex: none; margin: 2px 0 0 }
+.srcmark { font-size: 9px; color: var(--muted); margin-left: 1px }
 .ctrl { display: flex; gap: 6px; flex-wrap: wrap }
 .ctrl .btn { flex: 1 1 auto }
 
@@ -134,6 +141,7 @@ footer.note { color: var(--muted); font-size: 13px; margin-top: 30px }
 .promo button { width: 64px; height: 64px; border: 0; border-radius: 8px; background: var(--panel-2) center/80% no-repeat; cursor: pointer }
 @media (max-width: 899px) { .wrap.train { padding-left: 8px; padding-right: 8px }
   /* am Handy: Steuerung und Erklärung direkt unter dem Brett */
+  #g-ctrl { order: -3 } #g-end { order: -2 }
   #t-ctrl, #s-ctrl { order: -3 } .comment { order: -2 } #t-end { order: -1 } }
 </style>
 </head>
@@ -141,13 +149,14 @@ footer.note { color: var(--muted); font-size: 13px; margin-top: 30px }
 <header class="top"><div class="top-in">
   <a class="logo" href="#/"><svg viewBox="0 0 45 45" aria-hidden="true"><rect width="45" height="45" rx="10" fill="#5E8F32"/><g transform="translate(4.5 4) scale(.8)" id="logo-knight"></g></svg><span class="logo-t">Schach</span></a>
   <nav class="nav" id="nav">
-    <a href="#/">Start</a><a href="#/eroeffnungen">Eröffnungen</a><a href="#/taktik">Taktik</a><a href="#/sicherheit">Sicherheit</a><a href="#/eigene">Eigene Kurse</a><a href="#/fortschritt">Fortschritt</a>
+    <a href="#/">Start</a><a href="#/eroeffnungen">Eröffnungen</a><a href="#/spielen">Spielen</a><a href="#/taktik">Taktik</a><a href="#/sicherheit">Sicherheit</a><a href="#/endspiel">Endspiele</a><a href="#/eigene">Eigene Kurse</a><a href="#/fortschritt">Fortschritt</a>
   </nav>
   <button type="button" class="btn icon" id="theme-btn" style="margin-left:auto;flex:none;background:none" aria-label="Hell/Dunkel umschalten"></button>
 </div></header>
 <main class="wrap" id="app"><p class="muted">Lade …</p></main>
 <script>
 /*ENGINE-START*/
+function chessLib() {
 // Schachregeln: Stellung, vollständige Zuggenerierung (Rochade, en passant, Umwandlung), Schach/Matt/Patt,
 // Remis (dreifache Wiederholung, 50-Züge-Regel, ungenügendes Material), SAN in deutscher und englischer Notation, PGN.
 const Chess = (() => {
@@ -388,85 +397,156 @@ const Chess = (() => {
     out.game = g;
     return out;
   }
-  return { START, FILES, sqName, sqIndex, colorOf, fromFEN, toFEN, legalMoves, make, inCheck, attacked, san, parseSan, uci, Game, parsePgn, insufficient, DE };
+  return { START, FILES, sqName, sqIndex, colorOf, fromFEN, toFEN, legalMoves, pseudoMoves: pseudo, make, inCheck, attacked, san, parseSan, uci, Game, parsePgn, insufficient, DE };
 })();
-// Suche und Bewertung: Alpha-Beta mit Ruhesuche. Dient zum Prüfen der Aufgaben und als Gegnerlogik.
+// Suche und Bewertung: Alpha-Beta mit Ruhesuche, Iterative Deepening, Transpositionstabelle.
+// Dient zum Prüfen der Aufgaben, für Hinweise, als Gegner und für die Partieanalyse.
 const Engine = (() => {
   const VAL = { P: 100, N: 320, B: 330, R: 500, Q: 900, K: 0 };
   const MATE = 100000;
-  // einfache Feldtabellen (aus Sicht von Weiß, a1 = 0)
   const center = sq => { const f = sq & 7, r = sq >> 3; return 3.5 - Math.max(Math.abs(f - 3.5), Math.abs(r - 3.5)); };
   function pst(t, sq, white, endgame) {
     const r = white ? sq >> 3 : 7 - (sq >> 3), c = center(sq);
-    if (t === "P") return r * 6 + (c > 2 ? 8 : 0) - (r === 1 && c > 2 ? 0 : 0);
-    if (t === "N") return c * 8 - 10;
+    if (t === "P") { if (endgame) return r * 12; const f = sq & 7; return (f === 3 || f === 4 ? r * 8 + (c > 2 ? 12 : 0) : f === 2 || f === 5 ? r * 4 : r * 2); }
+    if (t === "N") return c * 10 - 22;
     if (t === "B") return c * 4;
     if (t === "R") return r === 6 ? 15 : 0;
     if (t === "Q") return c * 2;
     if (t === "K") return endgame ? c * 10 : (r === 0 ? 10 : -15 * r) - (c > 2 ? 10 : 0);
     return 0;
   }
+  const kdist = (a, b) => Math.max(Math.abs((a & 7) - (b & 7)), Math.abs((a >> 3) - (b >> 3)));
   function evaluate(p) {
-    let s = 0, mat = 0;
-    for (const c of p.board) if (c && c.toUpperCase() !== "K" && c.toUpperCase() !== "P") mat += VAL[c.toUpperCase()];
+    let s = 0, mat = 0, wMat = 0, bMat = 0, wPawns = 0, bPawns = 0, wk = -1, bk = -1;
+    const B = p.board;
+    for (let sq = 0; sq < 64; sq++) {
+      const c = B[sq]; if (!c) continue;
+      const t = c.toUpperCase(), w = c === t;
+      if (t === "K") { if (w) wk = sq; else bk = sq; continue; }
+      if (t === "P") { if (w) wPawns++; else bPawns++; } else { mat += VAL[t]; if (w) wMat += VAL[t]; else bMat += VAL[t]; }
+    }
     const endgame = mat <= 2600;
-    p.board.forEach((c, sq) => { if (!c) return; const t = c.toUpperCase(), w = c === t; s += (w ? 1 : -1) * (VAL[t] + pst(t, sq, w, endgame)); });
+    for (let sq = 0; sq < 64; sq++) { const c = B[sq]; if (!c) continue; const t = c.toUpperCase(), w = c === t; s += (w ? 1 : -1) * (VAL[t] + pst(t, sq, w, endgame)); }
+    // Eröffnung/Mittelspiel: Leichtfiguren entwickeln, König in Sicherheit, Dame nicht zu früh
+    if (!endgame) {
+      const dev = (w, home) => home.reduce((n, sq) => n + (B[sq] === (w ? "NBBN"[home.indexOf(sq)] : "nbbn"[home.indexOf(sq)]) ? 1 : 0), 0);
+      const wUndev = dev(true, [1, 2, 5, 6]), bUndev = dev(false, [57, 58, 61, 62]);
+      s -= 18 * wUndev; s += 18 * bUndev;
+      if (B[3] !== "Q" && wUndev >= 2) s -= 25; if (B[59] !== "q" && bUndev >= 2) s += 25;
+      // König in der Mitte ohne Rochaderecht ist gefährdet; rochierter König bekommt einen Bonus
+      const kSafe = (k, w) => { const f = k & 7, r = w ? k >> 3 : 7 - (k >> 3), rights = w ? /[KQ]/.test(p.castling) : /[kq]/.test(p.castling);
+        if (r === 0 && (f >= 6 || f <= 2)) return 20; if (!rights && f >= 3 && f <= 5) return -40; return 0; };
+      s += kSafe(wk, true) - kSafe(bk, false);
+    }
+    // Mattführung gegen den nackten König: König zum Rand treiben, eigenen König heranführen
+    if (!bMat && !bPawns && wMat >= 500) s += 30 * (3.5 - center(bk)) * 2 + 8 * (7 - kdist(wk, bk));
+    if (!wMat && !wPawns && bMat >= 500) s -= 30 * (3.5 - center(wk)) * 2 + 8 * (7 - kdist(wk, bk));
     return p.turn === "w" ? s : -s;
   }
-  const isCapture = m => !!m.captured || !!m.promo;
-  function order(moves) {
-    return moves.map(m => ({ m, k: (m.captured ? 10 * VAL[m.captured.toUpperCase()] - VAL[m.piece.toUpperCase()] / 10 + 1000 : 0) + (m.promo ? 800 : 0) }))
-      .sort((a, b) => b.k - a.k).map(x => x.m);
+
+  /* Zobrist-Schlüssel für die Transpositionstabelle */
+  const PIECES = "PNBRQKpnbrqk";
+  const Z = (() => { let x = 0x9E3779B9; const r = () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x; }; return Array.from({ length: 12 * 64 + 40 }, r); })();
+  function key(p) {
+    let h = p.turn === "w" ? 0 : Z[768];
+    for (let sq = 0; sq < 64; sq++) { const c = p.board[sq]; if (c) h ^= Z[PIECES.indexOf(c) * 64 + sq]; }
+    for (const c of p.castling) h ^= Z[769 + "KQkq".indexOf(c)];
+    if (p.ep >= 0) h ^= Z[773 + (p.ep & 7)];
+    return h >>> 0;
   }
-  let nodes = 0;
+  let TT = new Map(), nodes = 0, deadline = Infinity, stopped = false;
+  const killers = [];
+  const legalAfter = (p, m) => { const n = Chess.make(p, m); return Chess.inCheck(n, p.turn) ? null : n; };
+  function score(m, ttMove, ply) {
+    if (ttMove && m.from === ttMove.from && m.to === ttMove.to && m.promo === ttMove.promo) return 1e6;
+    let k = 0;
+    if (m.captured) k += 1e5 + 10 * VAL[m.captured.toUpperCase()] - VAL[m.piece.toUpperCase()] / 10;
+    if (m.promo) k += 9e4 + VAL[m.promo.toUpperCase()];
+    const kl = killers[ply]; if (kl && kl.some(x => x && x.from === m.from && x.to === m.to)) k += 5e4;
+    return k;
+  }
+  const order = (moves, ttMove, ply) => moves.map(m => [score(m, ttMove, ply), m]).sort((a, b) => b[0] - a[0]).map(x => x[1]);
   function quiesce(p, alpha, beta, ply) {
-    nodes++;
+    if ((++nodes & 1023) === 0 && Date.now() > deadline) stopped = true;
     const inChk = Chess.inCheck(p);
-    const moves = Chess.legalMoves(p);
-    if (!moves.length) return inChk ? -MATE + ply : 0;
     if (!inChk) {
       const stand = evaluate(p);
       if (stand >= beta) return stand;
       if (stand > alpha) alpha = stand;
     }
-    for (const m of order(inChk ? moves : moves.filter(isCapture))) {
-      const v = -quiesce(Chess.make(p, m), -beta, -alpha, ply + 1);
+    let any = false;
+    const ms = Chess.pseudoMoves(p);
+    for (const m of order(inChk ? ms : ms.filter(m => m.captured || m.promo), null, 60)) {
+      const n = legalAfter(p, m); if (!n) continue;
+      any = true;
+      const v = -quiesce(n, -beta, -alpha, ply + 1);
       if (v >= beta) return v;
       if (v > alpha) alpha = v;
     }
+    if (inChk && !any) return -MATE + ply;
     return alpha;
   }
   function search(p, depth, alpha, beta, ply) {
     if (depth <= 0) return quiesce(p, alpha, beta, ply);
-    nodes++;
-    const moves = Chess.legalMoves(p);
-    if (!moves.length) return Chess.inCheck(p) ? -MATE + ply : 0;
+    if ((++nodes & 1023) === 0 && Date.now() > deadline) stopped = true;
+    if (stopped) return 0;
     if (p.half >= 100) return 0;
-    const ext = Chess.inCheck(p) ? 1 : 0; // Schach verlängert die Suche
-    let best = -Infinity;
-    for (const m of order(moves)) {
-      const v = -search(Chess.make(p, m), depth - 1 + ext * (ply < 8 ? 1 : 0), -beta, -alpha, ply + 1);
-      if (v > best) best = v;
-      if (v > alpha) alpha = v;
-      if (alpha >= beta) break;
+    const k = key(p), e = TT.get(k);
+    if (e && e.depth >= depth && ply > 0) {
+      if (e.flag === 0) return e.score;
+      if (e.flag === 1 && e.score >= beta) return e.score;
+      if (e.flag === 2 && e.score <= alpha) return e.score;
     }
+    const inChk = Chess.inCheck(p), a0 = alpha;
+    let best = -Infinity, bestM = null, legal = 0;
+    for (const m of order(Chess.pseudoMoves(p), e && e.move, ply)) {
+      const n = legalAfter(p, m); if (!n) continue;
+      legal++;
+      const v = -search(n, depth - 1 + (inChk && ply < 12 ? 1 : 0), -beta, -alpha, ply + 1);
+      if (stopped) return 0;
+      if (v > best) { best = v; bestM = m; }
+      if (v > alpha) alpha = v;
+      if (alpha >= beta) { if (!m.captured) { const kl = killers[ply] || (killers[ply] = [null, null]); kl[1] = kl[0]; kl[0] = m; } break; }
+    }
+    if (!legal) return inChk ? -MATE + ply : 0;
+    if (TT.size > 300000) TT = new Map();
+    TT.set(k, { depth, score: best, flag: best <= a0 ? 2 : best >= beta ? 1 : 0, move: bestM });
     return best;
   }
-  /** Alle Züge mit genauer Bewertung (für Prüfungen und Analyse); depth in Halbzügen */
-  function rootScores(p, depth) {
-    nodes = 0;
-    return order(Chess.legalMoves(p)).map(m => ({ move: m, score: -search(Chess.make(p, m), depth - 1, -Infinity, Infinity, 1) }))
-      .sort((a, b) => b.score - a.score);
-  }
-  function best(p, depth) {
-    let bestM = null, bestV = -Infinity, alpha = -Infinity;
-    for (const m of order(Chess.legalMoves(p))) {
-      const v = -search(Chess.make(p, m), depth - 1, -Infinity, -alpha, 1);
-      if (v > bestV) { bestV = v; bestM = m; } if (v > alpha) alpha = v;
+  function reset(ms) { nodes = 0; stopped = false; deadline = ms ? Date.now() + ms : Infinity; TT = new Map(); killers.length = 0; }
+  /** Alle legalen Züge mit Bewertung in fester Tiefe (für Prüfungen, Hinweise und das Fehlermodell) */
+  function rootScores(p, depth, ms) {
+    reset(ms);
+    const out = [];
+    for (const m of order(Chess.legalMoves(p), null, 0)) {
+      const v = -search(Chess.make(p, m), depth - 1, -Infinity, Infinity, 1);
+      if (stopped) break;
+      out.push({ move: m, score: v });
     }
-    return { move: bestM, score: bestV };
+    return out.sort((a, b) => b.score - a.score);
   }
-  /** Statischer Abtausch auf einem Feld: Materialgewinn für die Seite am Zug (mit legalen Schlagzügen, also Fesselungen beachtet) */
+  /** Bester Zug mit Iterative Deepening (maxDepth, Zeitlimit in ms) */
+  function best(p, maxDepth = 4, ms = 0) {
+    reset(ms);
+    let bestM = null, bestV = -Infinity, depthDone = 0;
+    const root = Chess.legalMoves(p);
+    if (!root.length) return { move: null, score: Chess.inCheck(p) ? -MATE : 0, depth: 0 };
+    let ordered = order(root, null, 0);
+    for (let d = 1; d <= maxDepth; d++) {
+      let alpha = -Infinity, curBest = null, curV = -Infinity;
+      for (const m of ordered) {
+        const v = -search(Chess.make(p, m), d - 1, -Infinity, -alpha, 1);
+        if (stopped) break;
+        if (v > curV) { curV = v; curBest = m; }
+        if (v > alpha) alpha = v;
+      }
+      if (stopped && d > 1) break;
+      if (curBest) { bestM = curBest; bestV = curV; depthDone = d; ordered = [curBest, ...ordered.filter(x => x !== curBest)]; }
+      if (bestV > MATE - 100 || stopped) break;
+    }
+    return { move: bestM, score: bestV, depth: depthDone, nodes };
+  }
+  /** Statischer Abtausch auf einem Feld: Materialgewinn für die Seite am Zug (legale Schlagzüge, Fesselungen beachtet) */
   function see(p, sq) {
     const caps = Chess.legalMoves(p).filter(m => m.to === sq && m.captured);
     if (!caps.length) return 0;
@@ -474,16 +554,76 @@ const Engine = (() => {
     const gain = (m.captured.toUpperCase() === "K" ? 0 : VAL[m.captured.toUpperCase()]) + (m.promo ? VAL[m.promo.toUpperCase()] - 100 : 0);
     return Math.max(0, gain - see(Chess.make(p, m), sq));
   }
-  /** Figuren der Seite `color`, die der Gegner mit Gewinn schlagen kann („hängende“ Figuren) */
+  /** Figuren der Seite `color`, die der Gegner mit Gewinn (mindestens `min`) schlagen kann */
   function hanging(p, color, min = 1) {
     const q = color === p.turn ? Object.assign({}, p, { turn: color === "w" ? "b" : "w", ep: -1 }) : p;
-    if (Chess.inCheck(q, color)) return null; // Stellung mit Schach für die andere Seite ist hierfür ungeeignet
+    if (Chess.inCheck(q, color)) return null;
     const out = [];
     q.board.forEach((c, sq) => { if (c && Chess.colorOf(c) === color && c.toUpperCase() !== "K" && see(q, sq) >= min) out.push(sq); });
     return out;
   }
-  return { VAL, MATE, evaluate, search, rootScores, best, see, hanging, get nodes() { return nodes; } };
+
+  /* ---------- Menschenähnlicher Gegner ----------
+     Je niedriger die Elo, desto kürzer wird gerechnet, desto öfter werden Drohungen übersehen („blind“: nur der eigene Zug zählt,
+     die Antwort des Gegners nicht) und desto breiter streut die Wahl zwischen ähnlich aussehenden Zügen. Natürlich wirkende Züge
+     (Entwicklung, Rochade, Schlagen, Schach) werden bevorzugt. Starke Stufen prüfen ihren Zug zusätzlich tiefer nach. */
+  const LEVELS = [
+    { elo: 600, depth: 1, blind: 0.32, temp: 130, prior: 70, mate1: 0.6, guard: 0 },
+    { elo: 800, depth: 1, blind: 0.24, temp: 100, prior: 60, mate1: 0.75, guard: 0 },
+    { elo: 1000, depth: 2, blind: 0.15, temp: 80, prior: 55, mate1: 0.9, guard: 0 },
+    { elo: 1200, depth: 2, blind: 0.1, temp: 60, prior: 50, mate1: 0.97, guard: 0 },
+    { elo: 1500, depth: 2, blind: 0.05, temp: 40, prior: 45, mate1: 1, guard: 3 },
+    { elo: 1800, depth: 3, blind: 0.025, temp: 26, prior: 40, mate1: 1, guard: 3 },
+    { elo: 2000, depth: 3, blind: 0.01, temp: 16, prior: 32, mate1: 1, guard: 4 },
+    { elo: 2200, depth: 4, blind: 0, temp: 9, prior: 20, mate1: 1, guard: 4 }
+  ];
+  const levelFor = elo => LEVELS.reduce((a, l) => Math.abs(l.elo - elo) < Math.abs(a.elo - elo) ? l : a, LEVELS[0]);
+  function prior(p, m) {
+    const t = m.piece.toUpperCase(), opening = p.full <= 12, from = m.from >> 3, back = p.turn === "w" ? 0 : 7;
+    let b = 0;
+    if (m.captured) b += VAL[m.captured.toUpperCase()] / 12;
+    if (m.flag === "k" || m.flag === "q") b += 45;
+    if (opening && (t === "N" || t === "B") && from === back) b += 30;
+    if (opening && t === "P" && "de".includes(Chess.FILES[m.from & 7])) b += Math.abs(m.to - m.from) === 16 ? 25 : 10;
+    if (opening && t === "P" && Chess.FILES[m.from & 7] === "c") b += 8;
+    if (opening && t === "Q" && p.full <= 6) b -= 20;
+    if (opening && t === "K" && !m.flag) b -= 40;
+    if (opening && t === "R") b -= 25;
+    if (opening && t === "P" && "abgh".includes(Chess.FILES[m.from & 7])) b -= 15;
+    if (t === "N" && "ah".includes(Chess.FILES[m.to & 7])) b -= opening ? 40 : 15;
+    const n = Chess.make(p, m); if (Chess.inCheck(n)) b += 18;
+    return b;
+  }
+  function humanMove(p, elo, rand = Math.random) {
+    const L = levelFor(elo), moves = Chess.legalMoves(p);
+    if (moves.length === 1) return { move: moves[0], why: "einziger Zug" };
+    // Matt in 1 sehen die meisten (schwache Spieler nicht immer)
+    const mates = moves.filter(m => { const n = Chess.make(p, m); return Chess.inCheck(n) && !Chess.legalMoves(n).length; });
+    if (mates.length && rand() < L.mate1) return { move: mates[0], why: "Matt" };
+    const blind = rand() < L.blind;
+    let scored;
+    if (blind) { TT = new Map(); scored = moves.map(m => ({ move: m, score: -evaluate(Chess.make(p, m)) })); }
+    else scored = rootScores(p, L.depth, 2500);
+    if (!scored.length) scored = moves.map(m => ({ move: m, score: -evaluate(Chess.make(p, m)) }));
+    // Gewicht = Bewertung (unscharf je nach Stärke) + „Natürlichkeit“ des Zuges (Entwicklung, Zentrum, Rochade …)
+    const vals = scored.map(x => x.score / L.temp + L.prior * prior(p, x.move) / 1000);
+    const mx = Math.max(...vals), w = vals.map(v => Math.exp(v - mx)), sum = w.reduce((a, b) => a + b, 0);
+    let r = rand() * sum, pick = scored[0];
+    for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) { pick = scored[i]; break; } }
+    // Stärkere Spieler prüfen den Zug noch einmal und vermeiden grobe Fehler
+    if (L.guard) {
+      const b = best(p, L.guard, 1500);
+      const n = Chess.make(p, pick.move); reset(800);
+      const v = -search(n, L.guard - 1, -Infinity, Infinity, 1);
+      if (b.move && !stopped && b.score - v > 120 + (2200 - L.elo) / 6) return { move: b.move, why: "nachgeprüft" };
+    }
+    return { move: pick.move, why: blind ? "übersehen möglich" : "gewählt" };
+  }
+  return { VAL, MATE, evaluate, search, rootScores, best, see, hanging, humanMove, levelFor, key, get nodes() { return nodes; } };
 })();
+return { Chess, Engine };
+}
+const { Chess, Engine } = chessLib();
 /*ENGINE-END*/
 /*CONTENT-START*/
 // Eröffnungskurse. Züge in deutscher Kurznotation, Kommentare in {…} gehören zum Zug davor.
@@ -609,7 +749,7 @@ const COURSES = [
 ];
 // Taktikaufgaben: alle mit der eingebauten Engine geprüft (Lösung eindeutig bester Zug, Gegenzüge beste Verteidigung).
 // line = Lösung in Koordinaten (eigene Züge und Gegenzüge abwechselnd), alts = ebenfalls richtige Züge.
-const MOTIVE = { gabel: "Gabel", fesselung: "Fesselung", spiess: "Spieß", abzug: "Abzug", grundreihe: "Grundreihenmatt", ueberlastung: "Überlastung", ablenkung: "Ablenkung" };
+const MOTIVE = { gabel: "Gabel", fesselung: "Fesselung", spiess: "Spieß", abzug: "Abzug", grundreihe: "Grundreihenmatt", ueberlastung: "Überlastung", ablenkung: "Ablenkung", eigene: "Eigene Fehler" };
 const MOTIV_TEXT = {
   gabel: "Eine Figur greift zwei oder mehr Ziele gleichzeitig an – der Gegner kann nur eines retten.",
   fesselung: "Eine Figur darf nicht ziehen, weil sonst eine wertvollere Figur (oder der König) dahinter angegriffen wäre.",
@@ -617,7 +757,8 @@ const MOTIV_TEXT = {
   abzug: "Eine Figur zieht weg und gibt dabei die Linie einer anderen Figur frei – zwei Angriffe auf einmal.",
   grundreihe: "Der König steht hinter seinen eigenen Bauern eingesperrt; ein Turm oder die Dame setzt auf der Grundreihe matt.",
   ueberlastung: "Eine Figur hat zwei Aufgaben gleichzeitig – erfüllt sie die eine, vernachlässigt sie die andere.",
-  ablenkung: "Ein Opfer lockt einen Verteidiger weg oder auf ein ungünstiges Feld."
+  ablenkung: "Ein Opfer lockt einen Verteidiger weg oder auf ein ungünstiges Feld.",
+  eigene: "Stellungen aus deinen eigenen Partien, in denen dir ein Fehler unterlaufen ist – finde diesmal den besseren Zug."
 };
 const TAKTIK = [
   {"id": "t01", "motif": "gabel", "level": 1, "fen": "r3k3/8/8/1N6/8/8/8/4K3 w - - 0 1", "line": ["b5c7"], "san": ["Sc7+"], "alts": [], "text": "Der Springer greift König und Turm gleichzeitig an. Nach dem Königszug fällt der Turm auf a8."},
@@ -685,6 +826,34 @@ const TAKTIK = [
   {"id": "t63", "motif": "ablenkung", "level": 2, "fen": "5rk1/5ppp/5n2/8/6P1/3B3Q/5P1P/6K1 w - - 0 1", "line": ["g4g5"], "san": ["g5"], "alts": [], "text": "Der Springer f6 verteidigt h7. Der Bauer vertreibt ihn – dann droht Dxh7#."},
   {"id": "t64", "motif": "ablenkung", "level": 2, "fen": "6k1/5p1p/3b3q/6p1/8/5N2/5PPP/5RK1 b - - 0 1", "line": ["g5g4"], "san": ["g4"], "alts": [], "text": "Der Springer f3 verteidigt h2. Der Bauer vertreibt ihn – dann droht Dxh7#."}
 ];
+// Turmendspiele: geführte Varianten (Lernen + Abfragen mit Wiederholung). Eigene Formulierungen, Standardtheorie.
+const ENDSPIEL_KURS = {
+  id: "endspiel", level: "endspiel", side: "w", title: "Turmendspiele", back: "#/endspiel",
+  lines: [
+    { key: "lucena", name: "Lucena-Stellung: Brücke bauen", side: "w", pgn: `[FEN "3K4/3P1k2/8/8/8/8/2r5/4R3 w - - 0 1"]
+{ Weiß hat einen Bauern auf der 7. Reihe, der eigene König steht davor und kommt nicht heraus, weil der schwarze Turm von der Seite Schach geben kann. Der schwarze König ist durch den Turm e1 von der e-Linie abgeschnitten. Gewinnplan: König herausführen und mit dem Turm eine „Brücke“ auf der 4. Reihe bauen, die die Seitenschachs abfängt. [Feld: d8] [Feld: d7] }
+1. Tf1+ { Zuerst den schwarzen König noch eine Linie weiter wegdrängen, damit er den Bauern später nicht angreifen kann. }
+1... Kg7 2. Tf4 { Der entscheidende Zug: Der Turm geht auf die 4. Reihe. Von hier aus kann er später auf d4 dazwischenziehen. [Pfeil: f4d4] }
+2... Kg6 3. Ke7 { Jetzt kommt der König heraus. Schwarz kann nur noch Schach geben. }
+3... Te2+ 4. Kd6 Td2+ { Schach von hinten auf der d-Linie. }
+5. Ke6 { Der König pendelt nach vorne – immer zur Seite, wo der eigene Turm hilft. }
+5... Te2+ 6. Kd5 Td2+ 7. Td4 { Die Brücke steht: Der Turm blockiert die d-Linie und ist vom König gedeckt. Die Schachs sind vorbei. [Pfeil: d4d8] }
+7... Tc2 8. d8=D { Der Bauer wandelt um – Weiß gewinnt. Merke: König raus, Turm auf die 4. Reihe, Brücke bauen. }` },
+    { key: "lucena2", name: "Lucena-Stellung: wenn Schwarz abwartet", side: "w", pgn: `[FEN "3K4/3P1k2/8/8/8/8/2r5/4R3 w - - 0 1"]
+{ Dieselbe Stellung – diesmal wartet Schwarz mit dem Turm ab. Der Plan bleibt genau gleich. }
+1. Tf1+ Kg7 2. Tf4 Tc1 { Schwarz wartet auf der 1. Reihe. } 3. Ke7 Te1+ 4. Kd6 Td1+ 5. Ke6 Te1+ 6. Kd5 Td1+ 7. Td4 { Wieder fängt die Brücke die Schachs ab. }
+7... Tc1 8. d8=D { Umwandlung, Weiß gewinnt. }` },
+    { key: "philidor", name: "Philidor-Stellung: Remis halten", side: "b", pgn: `[FEN "4k3/R7/1r6/4K3/4P3/8/8/8 b - - 0 1"]
+{ Du verteidigst mit Schwarz. Der eigene König steht vor dem Bauern, der Turm hält die 6. Reihe. Solange der Bauer nicht auf der 6. Reihe steht, kann der weiße König nicht nach vorn. [Feld: e6] }
+1... Tc6 { Abwarten auf der 6. Reihe. Jedes Feld auf dieser Reihe, das nicht angegriffen ist, erfüllt denselben Zweck. }
+2. Th7 Tb6 { Weiter abwarten – nicht die 6. Reihe verlassen. }
+3. Kf5 Tc6 4. e5 Ta6 { Der Bauer steht auf der 5. Reihe – der Turm bleibt trotzdem auf der 6. }
+5. e6 { Jetzt hat der Bauer die 6. Reihe erreicht. Er nimmt dem weißen König aber auch das Versteck auf e6. }
+5... Ta1 { Der Moment für den Wechsel: Der Turm geht ganz nach hinten und gibt von dort Schach. [Pfeil: a1a8] }
+6. Kf6 Tf1+ { Schach von hinten. Der weiße König findet keinen Unterschlupf mehr. }
+7. Ke5 Te1+ 8. Kd6 Td1+ 9. Kc6 Tc1+ 10. Kd6 Td1+ { Schwarz gibt endlos Schach – Remis. Merke: Turm auf der 6. Reihe, bis der Bauer dorthin zieht, dann von hinten Schach geben. }` }
+  ]
+};
 /*CONTENT-END*/
 /*APP-START*/
 "use strict";
@@ -782,6 +951,7 @@ const Content = {
       this.lines.set(id, entry);
     };
     for (const c of COURSES) for (const l of c.lines) addLine(c, l, "");
+    for (const l of ENDSPIEL_KURS.lines) addLine(ENDSPIEL_KURS, l, "");
     for (const c of Store.data.own) for (const l of c.lines) addLine(Object.assign({ own: true, level: "eigene" }, c), l, "own-");
     // Taktikaufgaben: jeder Zug der Lösung muss legal sein, sonst wird die Aufgabe markiert und ausgeblendet
     for (const t of TAKTIK) {
@@ -800,8 +970,8 @@ const Content = {
   },
   ofCourse(c) { return c.lines.map(l => this.lines.get(`${c.own ? "own-" : ""}${c.id}:${l.key}`)).filter(Boolean); },
   due() { return [...this.lines.values()].filter(e => !e.error && SRS.isDue(e.id)); },
-  duePuzzles() { return TAKTIK.filter(t => !t.error && SRS.isDue("tk:" + t.id)); },
-  courseById(id) { return COURSES.find(c => c.id === id) || (Store.data.own.find(c => c.id === id) && Object.assign({ own: true, level: "eigene" }, Store.data.own.find(c => c.id === id))); }
+  duePuzzles() { return allPuzzles().filter(t => !t.error && SRS.isDue("tk:" + t.id)); },
+  courseById(id) { return COURSES.find(c => c.id === id) || (id === ENDSPIEL_KURS.id ? ENDSPIEL_KURS : null) || (Store.data.own.find(c => c.id === id) && Object.assign({ own: true, level: "eigene" }, Store.data.own.find(c => c.id === id))); }
 };
 
 /* ---------- Kleine Helfer ---------- */
@@ -947,7 +1117,7 @@ function mountTrainer(root, opts) {
       <div class="panel stack">
         <div><a href="${opts.backHref}" class="small">‹ Zurück</a></div>
         <div><h2 style="margin:0">${esc(opts.title)}</h2>${opts.sub ? `<div class="muted small">${esc(opts.sub)}</div>` : ""}</div>
-        <div class="row">${opts.mode === "learn" ? '<span class="badge new">Lernen</span>' : quiz ? '<span class="badge due">Abfragen</span>' : '<span class="badge">Musterpartie</span>'}
+        <div class="row">${opts.mode === "learn" ? '<span class="badge new">Lernen</span>' : quiz ? '<span class="badge due">Abfragen</span>' : `<span class="badge">${esc(opts.badge || "Musterpartie")}</span>`}
           <span class="badge ${side}">Du spielst ${SIDE[side]}</span><span class="status" id="t-status"></span></div>
       </div>
       <div class="panel comment" id="t-comment"></div>
@@ -1182,7 +1352,7 @@ Views.ueben = (root, args) => {
   const inQueue = mode === "quiz" && session.queue[session.qi] === id;
   return mountTrainer(root, {
     title: e.line.name, sub: e.course.title + (inQueue ? ` · Wiederholung ${session.qi + 1} von ${session.queue.length}` : ""),
-    parsed: e.parsed, side: e.side, mode, lineId: id, backHref: `#/kurs/${e.course.id}`,
+    parsed: e.parsed, side: e.side, mode, lineId: id, backHref: e.course.back || `#/kurs/${e.course.id}`,
     onFinish(box) {
       const next = $("#t-next", box); if (!next) return;
       if (inQueue && session.qi + 1 < session.queue.length) {
@@ -1190,7 +1360,7 @@ Views.ueben = (root, args) => {
         $("#q-next", box).onclick = () => { session.qi++; location.hash = `#/ueben/${encodeURIComponent(session.queue[session.qi])}/quiz`; };
       } else {
         if (inQueue) session = { queue: [], qi: 0 };
-        next.innerHTML = `<a class="btn primary" href="#/ueben/${encodeURIComponent(id)}/quiz">Noch einmal</a><a class="btn" href="#/kurs/${e.course.id}">Zum Kurs</a><a class="btn" href="#/">Start</a>`;
+        next.innerHTML = `<a class="btn primary" href="#/ueben/${encodeURIComponent(id)}/quiz">Noch einmal</a><a class="btn" href="${e.course.back || `#/kurs/${e.course.id}`}">Zur Übersicht</a><a class="btn" href="#/">Start</a>`;
       }
     }
   });
@@ -1283,9 +1453,11 @@ Views.fortschritt = root => {
 /* ---------- Taktiktrainer ---------- */
 const LEVEL_NAME = { 1: "Leicht", 2: "Mittel", 3: "Schwer" };
 const tkState = id => (Store.data.tk || (Store.data.tk = {}))[id] || null;
+const allPuzzles = () => TAKTIK.concat(Store.data.ownPuzzles || []);
 function puzzleTask(t) {
   const userMoves = Math.ceil(t.line.length / 2), side = t.fen.split(" ")[1];
   if (t.san[t.san.length - 1].endsWith("#")) return `${SIDE[side]} am Zug: Matt in ${userMoves}`;
+  if (t.motif === "eigene") return `${SIDE[side]} am Zug: Finde den besseren Zug`;
   return `${SIDE[side]} am Zug: Gewinne Material`;
 }
 let tkSession = { list: [], i: 0, label: "" };
@@ -1310,7 +1482,8 @@ Views.taktik = root => {
         <div class="row" style="justify-content:space-between"><span>Beim ersten Versuch richtig</span><b>${ok + fail ? Math.round(ok / (ok + fail) * 100) + " %" : "–"}</b></div></div>
     </div>
     <div class="grid">${motifs.map(m => {
-      const all = TAKTIK.filter(t => t.motif === m), done = all.filter(t => tkState(t.id)?.solved).length;
+      const all = allPuzzles().filter(t => t.motif === m), done = all.filter(t => tkState(t.id)?.solved).length;
+      if (!all.length) return "";
       return `<div class="panel card" data-m="${m}"><div class="t"><h3>${MOTIVE[m]}</h3><span class="badge">${done} / ${all.length}</span></div>
         <p class="muted small" style="margin:0">${esc(MOTIV_TEXT[m])}</p><div class="bar"><i style="width:${done / all.length * 100}%"></i></div>
         <div class="row">${[1, 2, 3].filter(l => all.some(t => t.level === l)).map(l => `<span class="badge">${LEVEL_NAME[l]}: ${all.filter(t => t.level === l).length}</span>`).join("")}</div></div>`;
@@ -1322,13 +1495,13 @@ Views.taktik = root => {
   };
   root.onclick = e => {
     const c = e.target.closest("[data-m]"); if (!c) return;
-    const list = TAKTIK.filter(t => t.motif === c.dataset.m).sort((a, b) => a.level - b.level || (tkState(a.id)?.solved ? 1 : 0) - (tkState(b.id)?.solved ? 1 : 0));
+    const list = allPuzzles().filter(t => t.motif === c.dataset.m).sort((a, b) => a.level - b.level || (tkState(a.id)?.solved ? 1 : 0) - (tkState(b.id)?.solved ? 1 : 0));
     startPuzzles(list, MOTIVE[c.dataset.m]);
   };
 };
 
 Views.aufgabe = (root, args) => {
-  const t = TAKTIK.find(x => x.id === args[0]);
+  const t = allPuzzles().find(x => x.id === args[0]);
   if (!t) { root.innerHTML = `<div class="err">Aufgabe nicht gefunden.</div>`; return; }
   root.classList.add("train");
   const side = t.fen.split(" ")[1];
@@ -1409,7 +1582,7 @@ function safetyBases() {
   if (safetyPool) return safetyPool;
   safetyPool = [];
   for (const e of Content.lines.values()) {
-    if (e.error || e.course.own) continue;
+    if (e.error || e.course.own || e.course.id === "endspiel") continue;
     let p = Chess.fromFEN(e.parsed.fen);
     e.parsed.moves.forEach((m, i) => { p = Chess.make(p, Chess.legalMoves(p).find(x => Chess.uci(x) === m.uci)); if (i >= 5) safetyPool.push(p); });
   }
@@ -1524,6 +1697,750 @@ Views["sicherheit-spiel"] = (root, args) => {
   return () => clearInterval(tick);
 };
 
+/* ---------- Engine im Hintergrund-Thread (Web Worker aus derselben Datei) ---------- */
+/** Rechenaufgaben für die Engine; läuft im Worker oder – falls Worker nicht möglich – im Hauptthread */
+function engineTask(type, args, progress) {
+  if (type === "move") { const p = Chess.fromFEN(args.fen), r = Engine.humanMove(p, args.elo); return { uci: Chess.uci(r.move), why: r.why }; }
+  if (type === "best") { const p = Chess.fromFEN(args.fen), r = Engine.best(p, args.depth || 4, args.ms || 0); return r.move ? { uci: Chess.uci(r.move), san: Chess.san(p, r.move), score: r.score, depth: r.depth } : null; }
+  if (type === "scores") { const p = Chess.fromFEN(args.fen); return Engine.rootScores(p, args.depth || 3, args.ms || 0).map(x => ({ uci: Chess.uci(x.move), san: Chess.san(p, x.move), score: x.score })); }
+  if (type === "analyse") {
+    // Jeder Zug wird mit dem besten Zug verglichen; Verlust in Hundertstel-Bauern aus Sicht des Ziehenden
+    const out = [], MATE = Engine.MATE, norm = v => v > MATE - 1000 ? 2000 : v < -MATE + 1000 ? -2000 : v;
+    let p = Chess.fromFEN(args.start);
+    args.moves.forEach((u, i) => {
+      const m = Chess.legalMoves(p).find(x => Chess.uci(x) === u);
+      const b = Engine.best(p, 3, 300), n = Chess.make(p, m);
+      let played;
+      if (b.move && Chess.uci(b.move) === u) played = b.score;
+      else { const r = Engine.best(n, 2, 250); played = r.move ? -r.score : (Chess.inCheck(n) ? MATE : 0); }
+      const loss = Math.max(0, norm(b.score) - norm(played));
+      let kind = "ungenau";
+      if (b.score > MATE - 100 && played < MATE - 100) kind = "matt-verpasst";
+      else if (played < -MATE + 100) kind = "erlaubt-matt";
+      else if (loss >= 200 && (Engine.hanging(n, p.turn) || []).includes(m.to)) kind = "haengt";
+      else if (loss >= 250) kind = "material";
+      out.push({ ply: i, turn: p.turn, fen: Chess.toFEN(p), uci: u, san: Chess.san(p, m), best: b.move ? Chess.uci(b.move) : null, bestSan: b.move ? Chess.san(p, b.move) : null, eval: norm(b.score), loss, kind });
+      p = n; progress && progress((i + 1) / args.moves.length);
+    });
+    return out;
+  }
+  if (type === "tb") {
+    const C = globalThis.__tb || (globalThis.__tb = {});
+    const get = k => C[k] || (C[k] = k === "P" ? tbSolve("P", [get("Q"), get("R")]) : tbSolve(k));
+    return get(args.kind);
+  }
+  throw new Error("unbekannte Aufgabe " + type);
+}
+function workerMain() {
+  onmessage = e => {
+    const { id, type, args } = e.data;
+    try { postMessage({ id, result: engineTask(type, args, p => postMessage({ id, progress: p })) }); }
+    catch (err) { postMessage({ id, error: String(err && err.message || err) }); }
+  };
+}
+const AI = (() => {
+  let w = null, failed = false, seq = 0;
+  const pend = new Map();
+  function init() {
+    if (w || failed) return;
+    try {
+      const src = `${chessLib.toString()}\nconst { Chess, Engine } = chessLib();\n${tbSolve.toString()}\n${engineTask.toString()}\n(${workerMain.toString()})();`;
+      w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+      w.onmessage = e => {
+        const h = pend.get(e.data.id); if (!h) return;
+        if (e.data.progress != null) { h.progress?.(e.data.progress); return; }
+        pend.delete(e.data.id);
+        if (e.data.error) h.reject(new Error(e.data.error)); else h.resolve(e.data.result);
+      };
+      w.onerror = () => { failed = true; w = null; for (const h of pend.values()) h.fallback(); pend.clear(); };
+    } catch (e) { failed = true; w = null; }
+  }
+  function call(type, args, progress) {
+    init();
+    return new Promise((resolve, reject) => {
+      const fallback = () => setTimeout(() => { try { resolve(engineTask(type, args, progress)); } catch (e) { reject(e); } }, 30);
+      if (!w) { fallback(); return; }
+      const id = ++seq;
+      pend.set(id, { resolve, reject, progress, fallback });
+      w.postMessage({ id, type, args });
+    });
+  }
+  return { call, get mode() { return w ? "Hintergrund-Thread" : "Hauptthread"; } };
+})();
+
+/* ---------- Aktivitäten (für Trainingsplan und Statistik) ---------- */
+function logActivity(cat, n = 1) {
+  const d = isoDay(), L = Store.data.log || (Store.data.log = {});
+  const day = L[d] || (L[d] = {}); day[cat] = (day[cat] || 0) + n;
+  touchDay(); Store.save();
+}
+
+/* ---------- Partien gegen den menschenähnlichen Gegner ---------- */
+const ELOS = [600, 800, 1000, 1200, 1500, 1800, 2000];
+const ELO_LABEL = e => e >= 2000 ? "2000+" : String(e);
+const TIMECTRL = [
+  { id: "ohne", label: "Ohne Uhr", base: 0, inc: 0, speeds: "rapid,classical" },
+  { id: "15+10", label: "15+10", base: 15, inc: 10, speeds: "rapid,classical" },
+  { id: "10+5", label: "10+5", base: 10, inc: 5, speeds: "rapid" },
+  { id: "5+3", label: "5+3", base: 5, inc: 3, speeds: "blitz" }
+];
+// Lichess-Wertungsgruppen (Untergrenzen) je Gegnerstärke
+const LICHESS_RATINGS = { 600: "0", 800: "0,1000", 1000: "1000,1200", 1200: "1200,1400", 1500: "1400,1600", 1800: "1800,2000", 2000: "2000,2200" };
+const TOKEN_KEY = "schach-lichess-token";
+const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } };
+/** Zug aus der Lichess-Datenbank, gewichtet nach Häufigkeit bei Spielern dieser Stärke. null = Stellung zu selten. */
+async function explorerMove(pos, elo, tc) {
+  const token = getToken();
+  if (!token) throw { code: "token" };
+  const url = `https://explorer.lichess.ovh/lichess?variant=standard&fen=${encodeURIComponent(Chess.toFEN(pos))}&speeds=${tc.speeds}&ratings=${LICHESS_RATINGS[elo]}&moves=15&topGames=0&recentGames=0`;
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 5000);
+  let res;
+  try { res = await fetch(url, { headers: { Authorization: "Bearer " + token }, signal: ctrl.signal }); }
+  catch (e) { throw { code: e && e.name === "AbortError" ? "timeout" : "offline" }; }
+  finally { clearTimeout(timer); }
+  if (res.status === 401 || res.status === 403) throw { code: "auth" };
+  if (res.status === 429) throw { code: "limit" };
+  if (!res.ok) throw { code: "http", status: res.status };
+  const j = await res.json();
+  const cands = (j.moves || []).map(m => ({ san: m.san, n: (m.white || 0) + (m.draws || 0) + (m.black || 0) })).filter(m => m.n > 0);
+  const total = cands.reduce((a, m) => a + m.n, 0);
+  if (total < 10) return null;
+  let r = Math.random() * total;
+  for (const c of cands) { r -= c.n; if (r <= 0) { const m = Chess.parseSan(pos, c.san); if (m) return { move: m, share: Math.round(c.n / total * 100), total }; break; } }
+  return null;
+}
+/** Eingebautes Eröffnungsbuch aus den Kursvarianten (Haupttheorie); Fallen und Lektionen zählen nicht */
+let BOOK = null;
+const BOOK_PLIES = { 600: 6, 800: 8, 1000: 10, 1200: 12, 1500: 16, 1800: 20, 2000: 24 };
+function bookMove(pos) {
+  if (!BOOK) {
+    BOOK = new Map();
+    for (const e of Content.lines.values()) {
+      if (e.error || e.course.own || ["fallen", "grundsaetze"].includes(e.course.id) || e.parsed.fen !== Chess.START) continue;
+      let p = Chess.fromFEN(Chess.START);
+      for (const m of e.parsed.moves) {
+        const k = Chess.toFEN(p, true), o = BOOK.get(k) || {};
+        o[m.uci] = (o[m.uci] || 0) + 1; BOOK.set(k, o);
+        p = Chess.make(p, Chess.legalMoves(p).find(x => Chess.uci(x) === m.uci));
+      }
+    }
+  }
+  const o = BOOK.get(Chess.toFEN(pos, true)); if (!o) return null;
+  const list = Object.entries(o), total = list.reduce((a, x) => a + x[1], 0);
+  let r = Math.random() * total;
+  for (const [u, n] of list) { r -= n; if (r <= 0) return Chess.legalMoves(pos).find(x => Chess.uci(x) === u) || null; }
+  return null;
+}
+const DB_ERR = { token: "kein Lichess-Token hinterlegt", auth: "Anmeldung nötig – Lichess-Token fehlt oder ist ungültig", offline: "keine Verbindung", timeout: "Wartezeit überschritten", limit: "zu viele Anfragen", http: "Lichess antwortet nicht" };
+
+function gamePgn(g) {
+  const p0 = Chess.fromFEN(g.start); let p = p0, txt = "";
+  g.moves.forEach((u, i) => {
+    const m = Chess.legalMoves(p).find(x => Chess.uci(x) === u);
+    if (p.turn === "w") txt += `${p.full}. `; else if (i === 0) txt += `${p.full}... `;
+    txt += Chess.san(p, m, "en") + " "; p = Chess.make(p, m);
+  });
+  const d = (g.date || isoDay()).replace(/-/g, ".");
+  const me = "Du", cpu = `Computer (Elo ${ELO_LABEL(g.elo)})`;
+  const tc = TIMECTRL.find(t => t.id === g.tc);
+  const head = [["Event", "Trainingspartie"], ["Site", "Schachtraining"], ["Date", d], ["White", g.color === "w" ? me : cpu], ["Black", g.color === "b" ? me : cpu],
+    ["Result", g.result || "*"], ["TimeControl", tc && tc.base ? `${tc.base * 60}+${tc.inc}` : "-"]].map(([k, v]) => `[${k} "${v}"]`).join("\n");
+  const body = (txt + (g.result || "*")).replace(/(.{1,79})(\s|$)/g, "$1\n").trim();
+  return head + "\n\n" + body + "\n";
+}
+const userScore = g => g.result === "1/2-1/2" ? 0.5 : (g.result === "1-0") === (g.color === "w") ? 1 : 0;
+function strengthEstimate() {
+  const games = (Store.data.games || []).filter(g => g.result && g.result !== "*").slice(0, 30);
+  if (games.length < 3) return null;
+  const avg = games.reduce((a, g) => a + g.elo, 0) / games.length, sc = games.reduce((a, g) => a + userScore(g), 0) / games.length;
+  // lineare Leistungsformel: Durchschnitt der Gegner + 800 × (Punkte − 50 %)
+  return { elo: Math.round(Math.min(2600, Math.max(300, avg + 800 * (sc - 0.5))) / 10) * 10, n: games.length };
+}
+
+Views.spielen = root => {
+  const set = Store.data.playSet || (Store.data.playSet = { elo: 1000, color: "w", tc: "ohne", showSrc: true, useDb: true });
+  const cur = Store.data.current;
+  const games = Store.data.games || [], est = strengthEstimate();
+  const byElo = ELOS.map(e => { const gs = games.filter(g => g.elo === e && g.result && g.result !== "*"); const w = gs.filter(g => userScore(g) === 1).length, d = gs.filter(g => userScore(g) === 0.5).length; return { e, n: gs.length, w, d, l: gs.length - w - d }; }).filter(x => x.n);
+  root.innerHTML = `<h1>Partie spielen</h1><p class="muted">Der Gegner spielt wie die meisten Menschen der gewählten Stärke – mit typischen Fehlern, nicht wie eine perfekte Engine.</p>
+    ${cur && !cur.over ? `<div class="ok" style="margin-bottom:12px">Eine Partie läuft noch. <a href="#/spiel">Weiterspielen</a></div>` : ""}
+    <div class="grid" style="align-items:start">
+      <div class="panel stack">
+        <div><h3>Gegnerstärke (Elo)</h3><div class="tabs" id="p-elo">${ELOS.map(e => `<button type="button" data-v="${e}" aria-pressed="${set.elo === e}">${ELO_LABEL(e)}</button>`).join("")}</div></div>
+        <div><h3>Deine Farbe</h3><div class="tabs" id="p-color">${[["w", "Weiß"], ["b", "Schwarz"], ["r", "Zufall"]].map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${set.color === v}">${l}</button>`).join("")}</div></div>
+        <div><h3>Bedenkzeit</h3><div class="tabs" id="p-tc">${TIMECTRL.map(t => `<button type="button" data-v="${t.id}" aria-pressed="${set.tc === t.id}">${t.label}</button>`).join("")}</div></div>
+        <label class="chk"><input type="checkbox" id="p-src" ${set.showSrc ? "checked" : ""} style="width:20px;height:20px"> Anzeigen, ob der Gegner aus der Datenbank oder mit der Engine spielt</label>
+        <button class="btn primary big" id="p-start">Partie starten</button>
+      </div>
+      <div class="panel stack">
+        <h3 style="margin:0">Eröffnung aus der Lichess-Datenbank (online, optional)</h3>
+        <p class="small muted" style="margin:0">In Eröffnung und frühem Mittelspiel wählt der Gegner Züge, die echte Lichess-Spieler seiner Stärke wirklich gespielt haben – gewichtet nach Häufigkeit. Lichess verlangt dafür einen persönlichen Zugangsschlüssel (Token). Ohne Token, ohne Verbindung oder bei seltenen Stellungen spielt automatisch die eingebaute Engine.</p>
+        <label class="chk"><input type="checkbox" id="p-db" ${set.useDb ? "checked" : ""} style="width:20px;height:20px"> Datenbank nutzen, wenn möglich</label>
+        <input class="input" id="p-token" type="password" autocomplete="off" placeholder="Lichess-Token (lichess.org → Einstellungen → API-Zugangsschlüssel)" value="${esc(getToken())}">
+        <p class="small muted" style="margin:0">Der Token bleibt nur in diesem Browser und ist nicht im Export enthalten. Er braucht keine Berechtigungen.</p>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:12px"><h2>Deine Partien</h2>
+      ${est ? `<p style="margin:0 0 8px">Ungefähre Spielstärke: <b style="font-size:20px">${est.elo}</b> <span class="muted small">(aus den letzten ${est.n} Partien)</span></p>` : `<p class="muted small" style="margin:0 0 8px">Nach drei Partien erscheint hier deine ungefähre Spielstärke.</p>`}
+      ${byElo.length ? `<div class="list">${byElo.map(x => `<div class="li"><div class="nm">Gegner ${ELO_LABEL(x.e)}<small>${x.n} Partie${x.n === 1 ? "" : "n"}</small></div><span class="badge due">${x.w} S</span><span class="badge">${x.d} R</span><span class="badge err">${x.l} N</span><b>${Math.round((x.w + x.d / 2) / x.n * 100)} %</b></div>`).join("")}</div>` : ""}
+      ${games.length ? `<h3 style="margin-top:14px">Letzte Partien</h3><div class="list">${games.slice(0, 15).map(g => `<div class="li"><div class="nm">${["Niederlage", "Remis", "Sieg"][userScore(g) * 2]} gegen ${ELO_LABEL(g.elo)}<small>${fmtDay(g.date)} · ${SIDE[g.color]} · ${Math.ceil(g.moves.length / 2)} Züge · ${esc(g.reason || "")}</small></div><a class="btn small" href="#/spiel-ansicht/${g.id}">Ansehen</a></div>`).join("")}</div>` : `<p class="muted">Noch keine Partien gespielt.</p>`}
+    </div>`;
+  const seg = (id, key, num) => { $(id, root).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; set[key] = num ? +b.dataset.v : b.dataset.v; $$(`${id} button`, root).forEach(x => x.setAttribute("aria-pressed", String(x === b))); Store.save(); }; };
+  seg("#p-elo", "elo", true); seg("#p-color", "color"); seg("#p-tc", "tc");
+  $("#p-src", root).onchange = e => { set.showSrc = e.target.checked; Store.save(); };
+  $("#p-db", root).onchange = e => { set.useDb = e.target.checked; Store.save(); };
+  $("#p-token", root).onchange = e => { try { const v = e.target.value.trim(); if (v) localStorage.setItem(TOKEN_KEY, v); else localStorage.removeItem(TOKEN_KEY); } catch (err) {} toast(e.target.value.trim() ? "Token gespeichert." : "Token entfernt."); };
+  $("#p-start", root).onclick = () => {
+    if (cur && !cur.over && !confirm("Die laufende Partie wird dabei aufgegeben. Neue Partie starten?")) return;
+    if (cur && !cur.over) finishGame(cur, cur.color === "w" ? "0-1" : "1-0", "aufgegeben");
+    const tc = TIMECTRL.find(t => t.id === set.tc), color = set.color === "r" ? (Math.random() < 0.5 ? "w" : "b") : set.color;
+    Store.data.current = { id: "g" + Date.now().toString(36), date: isoDay(), start: Chess.START, moves: [], src: [], elo: set.elo, color, tc: tc.id,
+      clock: tc.base ? { w: tc.base * 60000, b: tc.base * 60000 } : null, showSrc: set.showSrc, useDb: set.useDb, db: set.useDb ? (getToken() ? "an" : "kein Token") : "aus" };
+    Store.save(); location.hash = "#/spiel";
+  };
+};
+
+function finishGame(g, result, reason) {
+  g.over = true; g.result = result; g.reason = reason;
+  const games = Store.data.games || (Store.data.games = []);
+  if (!games.some(x => x.id === g.id)) games.unshift({ id: g.id, date: g.date, start: g.start, moves: g.moves.slice(), elo: g.elo, color: g.color, tc: g.tc, result, reason });
+  if (games.length > 200) games.length = 200;
+  games.forEach((x, i) => { if (i >= 20 && x.analysis) x.analysis = null; }); // Speicherplatz: Analysen nur für die letzten 20 Partien
+  logActivity("partie");
+  Store.save();
+}
+
+Views.spiel = root => {
+  const g = Store.data.current;
+  if (!g) { location.hash = "#/spielen"; return; }
+  root.classList.add("train");
+  const tc = TIMECTRL.find(t => t.id === g.tc);
+  const game = new Chess.Game(g.start);
+  for (const u of g.moves) game.play(game.moves().find(m => Chess.uci(m) === u));
+  let thinking = false, tick = 0, lastTs = Date.now(), alive = true, dbNote = "";
+  const me = g.color, cpu = me === "w" ? "b" : "w";
+  root.innerHTML = `<div class="trainer"><div>
+      <div class="clockrow"><span class="pl">Computer ${ELO_LABEL(g.elo)}</span><span class="src" id="g-src"></span>${g.clock ? `<b class="clock" id="c-${cpu}"></b>` : ""}</div>
+      <div id="t-board"></div>
+      <div class="clockrow"><span class="pl">Du (${SIDE[me]})</span><span class="status" id="g-status"></span>${g.clock ? `<b class="clock" id="c-${me}"></b>` : ""}</div>
+    </div><div class="side">
+      <div class="ctrl" id="g-ctrl"></div>
+      <div id="g-end"></div>
+      <div class="panel"><div class="moves" id="t-moves"></div></div>
+      <div class="panel small muted" id="g-info"></div>
+    </div></div>`;
+  const board = new Board($("#t-board", root), { orientation: me, onMove: userMove });
+  function fmtClock(ms) { ms = Math.max(0, ms); const s = Math.ceil(ms / 1000); return ms < 10000 ? (ms / 1000).toFixed(1) : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+  function drawClocks() {
+    if (!g.clock) return;
+    for (const c of ["w", "b"]) { const el = $(`#c-${c}`, root); if (!el) continue; el.textContent = fmtClock(g.clock[c]); el.classList.toggle("run", !g.over && game.pos.turn === c); el.classList.toggle("low", g.clock[c] < 30000); }
+  }
+  function draw() {
+    const h = game.history[game.history.length - 1];
+    board.setPosition(game.pos, h ? [h.move.from, h.move.to] : null);
+    board.setMovable(!g.over && !thinking && game.pos.turn === me ? me : null);
+    let mv = "";
+    game.history.forEach((x, i) => { if (i % 2 === 0) mv += `<span class="no">${i / 2 + 1}.</span>`; mv += `<button type="button" class="${i === game.history.length - 1 ? "cur" : ""}" disabled>${esc(x.san)}${g.showSrc && g.src[i] && g.src[i] !== "user" ? `<sup class="srcmark">${{ db: "D", book: "B", engine: "E" }[g.src[i]]}</sup>` : ""}</button>`; });
+    $("#t-moves", root).innerHTML = mv || '<span class="muted">Noch keine Züge.</span>';
+    $("#t-moves .cur", root)?.scrollIntoView({ block: "nearest" });
+    $("#g-ctrl", root).innerHTML = g.over ? `<a class="btn primary" href="#/spielen">Neue Partie</a><button class="btn icon" data-go="flip" aria-label="Brett drehen">${icon("flip")}</button>`
+      : `<button class="btn" data-go="resign">Aufgeben</button><button class="btn" data-go="draw">Remis anbieten</button><button class="btn icon" data-go="flip" aria-label="Brett drehen">${icon("flip")}</button>`;
+    $("#g-info", root).innerHTML = `Gegner ${ELO_LABEL(g.elo)} · ${tc.label} · Datenbank: ${esc(g.db)}${dbNote ? ` (${esc(dbNote)})` : ""}${g.showSrc ? " · D = Lichess-Datenbank, B = Eröffnungsbuch, E = Engine" : ""}`;
+    drawClocks();
+  }
+  function status(t, cls) { const s = $("#g-status", root); if (s) { s.textContent = t || ""; s.className = "status " + (cls || ""); } }
+  function checkEnd() {
+    const st = game.status();
+    if (st.over) { end(st.result, st.reason); return true; }
+    return false;
+  }
+  function end(result, reason) {
+    if (g.over) return;
+    clearInterval(tick);
+    finishGame(g, result, reason);
+    draw();
+    const sc = userScore(g);
+    status(["Verloren", "Remis", "Gewonnen!"][sc * 2], sc === 1 ? "good" : sc === 0 ? "bad" : "");
+    $("#g-end", root).innerHTML = `<div class="panel stack"><div class="${sc === 1 ? "ok" : sc === 0 ? "err" : "ok"}"><b>${result}</b> – ${esc(reason)}</div>
+      <div class="row"><a class="btn primary" href="#/spiel-ansicht/${g.id}">Analyse ansehen</a><a class="btn" href="#/spielen">Neue Partie</a></div></div>`;
+  }
+  function applyMove(m, src) {
+    if (g.clock && tc.inc) g.clock[game.pos.turn] += tc.inc * 1000;
+    game.play(m); g.moves.push(Chess.uci(m)); g.src.push(src); Store.save();
+    lastTs = Date.now();
+    draw();
+    if (!checkEnd() && game.pos.turn === cpu) cpuTurn();
+  }
+  function userMove(m) { if (g.over || thinking || game.pos.turn !== me) return false; status(""); applyMove(m, "user"); return true; }
+  async function cpuTurn() {
+    thinking = true; draw(); status("Gegner denkt …");
+    const startPly = game.history.length, t0 = Date.now();
+    let mv = null, src = "engine", note = "";
+    if (g.useDb && g.db === "an" && startPly < 24) {
+      try { const r = await explorerMove(game.pos, g.elo, tc); if (r) { mv = r.move; src = "db"; note = `aus der Datenbank (${r.share} % von ${r.total} Partien)`; } else note = "Stellung zu selten in der Datenbank – Engine"; }
+      catch (e) { g.db = "offline"; dbNote = DB_ERR[e.code] || "Fehler"; note = "Datenbank nicht erreichbar – Engine spielt weiter"; }
+    }
+    if (!mv && startPly < (BOOK_PLIES[g.elo] || 12)) { mv = bookMove(game.pos); if (mv) { src = "book"; note = "aus dem eingebauten Eröffnungsbuch"; } }
+    if (!mv) { const r = await AI.call("move", { fen: Chess.toFEN(game.pos), elo: g.elo }); mv = game.moves().find(m => Chess.uci(m) === r.uci); }
+    // menschliche Bedenkzeit: kurz bei klaren Zügen, nie länger als ein Bruchteil der Restzeit
+    const want = 500 + Math.random() * 1300, left = g.clock ? g.clock[cpu] / 25 : want;
+    const wait = Math.max(0, Math.min(want, left) - (Date.now() - t0));
+    await new Promise(r => setTimeout(r, wait));
+    if (!alive || g.over || game.history.length !== startPly) return;
+    thinking = false;
+    if (g.showSrc) $("#g-src", root).textContent = { db: "Datenbank", book: "Eröffnungsbuch", engine: "Engine" }[src];
+    status(g.showSrc && note ? note : "");
+    applyMove(mv, src);
+  }
+  root.onclick = async e => {
+    const b = e.target.closest("[data-go]"); if (!b) return;
+    if (b.dataset.go === "flip") board.flip();
+    if (b.dataset.go === "resign" && !g.over && confirm("Wirklich aufgeben?")) end(me === "w" ? "0-1" : "1-0", "aufgegeben");
+    if (b.dataset.go === "draw" && !g.over && !thinking) {
+      if (game.history.length < 20) { status("Remis abgelehnt – noch zu früh.", ""); return; }
+      const r = await AI.call("best", { fen: Chess.toFEN(game.pos), depth: 3, ms: 800 });
+      const cpuEval = r ? (game.pos.turn === cpu ? r.score : -r.score) : 0;
+      if (cpuEval <= 30 || (game.history.length > 80 && Math.abs(cpuEval) < 60)) end("1/2-1/2", "Remis vereinbart"); else status("Der Gegner lehnt das Remis ab.", "");
+    }
+  };
+  tick = setInterval(() => {
+    if (!g.clock || g.over) return;
+    const now = Date.now(), dt = now - lastTs; lastTs = now;
+    if (!game.history.length && game.pos.turn === me) return; // Uhr läuft ab dem ersten Zug
+    g.clock[game.pos.turn] -= dt;
+    if (g.clock[game.pos.turn] <= 0) {
+      g.clock[game.pos.turn] = 0;
+      const loser = game.pos.turn, other = loser === "w" ? "b" : "w";
+      // Zeitüberschreitung: verloren, außer der Gegner kann nicht mehr mattsetzen
+      const onlyKing = !game.pos.board.some(c => c && Chess.colorOf(c) === other && c.toUpperCase() !== "K");
+      end(onlyKing ? "1/2-1/2" : loser === "w" ? "0-1" : "1-0", onlyKing ? "Zeit abgelaufen, aber kein Mattmaterial" : "Zeit abgelaufen");
+    }
+    drawClocks();
+  }, 100);
+  draw();
+  if (g.over) end(g.result, g.reason);
+  else if (game.pos.turn === cpu) cpuTurn();
+  return () => { alive = false; clearInterval(tick); Store.save(); };
+};
+
+/* ---------- Partie ansehen und analysieren ---------- */
+const KIND_TEXT = {
+  "matt-verpasst": (x) => `Hier gab es ein Matt: ${x.bestSan}.`,
+  "erlaubt-matt": (x) => `Dieser Zug erlaubt dem Gegner ein Matt. Besser war ${x.bestSan}.`,
+  "haengt": (x) => `Danach steht die gezogene Figur ungedeckt und geht verloren. Besser war ${x.bestSan}.`,
+  "material": (x) => `Verliert Material. Besser war ${x.bestSan}.`,
+  "ungenau": (x) => `Ungenau – stärker war ${x.bestSan}.`
+};
+const lossText = (l, kind) => l >= 1500 || /matt/.test(kind || "") ? "entscheidend" : `etwa ${(l / 100).toLocaleString("de-DE", { maximumFractionDigits: 1 })} Bauern`;
+/** Wo wurde die eigene Kursvariante verlassen? */
+function courseDeviation(g) {
+  let best = null;
+  for (const e of Content.lines.values()) {
+    if (e.error || e.side !== g.color || e.parsed.fen !== Chess.START) continue;
+    const lm = e.parsed.moves; let k = 0;
+    while (k < lm.length && k < g.moves.length && lm[k].uci === g.moves[k]) k++;
+    if (k >= 2 && (!best || k > best.k)) best = { e, k };
+  }
+  if (!best) return null;
+  const { e, k } = best, lm = e.parsed.moves, name = `„${e.line.name}“ (${e.course.title})`;
+  if (k >= lm.length) return `Du hast die Kursvariante ${name} bis zum Ende gespielt.`;
+  if (k >= g.moves.length) return `Die Partie endete innerhalb der Kursvariante ${name}.`;
+  const p = Chess.fromFEN(Chess.START); let q = p; for (let i = 0; i < k; i++) q = Chess.make(q, Chess.legalMoves(q).find(x => Chess.uci(x) === g.moves[i]));
+  const played = Chess.san(q, Chess.legalMoves(q).find(x => Chess.uci(x) === g.moves[k])), no = `${Math.floor(k / 2) + 1}${k % 2 ? "…" : "."}`;
+  return (q.turn === g.color ? `Du hast die Kursvariante ${name} bei Zug ${no} verlassen: gespielt ${played}, im Kurs steht ${lm[k].san}.` : `Der Gegner ist bei Zug ${no} von deiner Kursvariante ${name} abgewichen (${played} statt ${lm[k].san}).`);
+}
+async function addErrorPuzzles(g, errs) {
+  const own = Store.data.ownPuzzles || (Store.data.ownPuzzles = []);
+  let n = 0;
+  for (const x of errs) {
+    if (!x.best || x.loss < 150 || own.some(p => p.fen === x.fen)) continue;
+    const sc = await AI.call("scores", { fen: x.fen, depth: 3, ms: 3000 });
+    const top = sc.find(s => s.uci === x.best) || sc[0];
+    const alts = sc.filter(s => s.uci !== top.uci && top.score - s.score <= 30).map(s => ({ ply: 0, uci: s.uci }));
+    const rest = sc.filter(s => s.uci !== top.uci && top.score - s.score > 30);
+    if (alts.length > 2 || (rest[0] && top.score - rest[0].score < 120)) continue; // nicht eindeutig genug für eine Aufgabe
+    const id = "e" + Date.now().toString(36) + n;
+    own.push({ id, motif: "eigene", level: 2, fen: x.fen, line: [top.uci], san: [top.san], alts,
+      text: `Aus deiner Partie vom ${fmtDay(g.date)} gegen ${ELO_LABEL(g.elo)}: Gespielt wurde ${x.san}. ${KIND_TEXT[x.kind](Object.assign({}, x, { bestSan: top.san }))}` });
+    Store.data.srs["tk:" + id] = { learned: true, box: 0, due: isoDay(), reps: 0, lapses: 0 };
+    n++;
+  }
+  Store.save();
+  return n;
+}
+Views["spiel-ansicht"] = (root, args) => {
+  const g = (Store.data.games || []).find(x => x.id === args[0]);
+  if (!g) { root.innerHTML = `<div class="err">Partie nicht gefunden.</div>`; return; }
+  root.innerHTML = `<div class="small"><a href="#/spielen">‹ Partien</a></div>
+    <div class="row" style="justify-content:space-between;margin:6px 0 12px"><div><h1>${["Niederlage", "Remis", "Sieg"][userScore(g) * 2]} gegen ${ELO_LABEL(g.elo)}</h1><div class="muted">${fmtDay(g.date)} · ${SIDE[g.color]} · ${g.result} · ${esc(g.reason || "")}</div></div></div>
+    <div class="stack" id="a-body"><div class="panel" id="a-prog">Analyse läuft … <div class="bar" style="margin-top:8px"><i id="a-bar" style="width:0"></i></div></div></div>`;
+  let alive = true, cleanupT = null;
+  const show = async res => {
+    if (!alive) return;
+    const mine = res.filter(x => x.turn === g.color && x.loss >= 70).sort((a, b) => b.loss - a.loss).slice(0, 3);
+    const theirs = res.filter(x => x.turn !== g.color && x.loss >= 70).sort((a, b) => b.loss - a.loss).slice(0, 3);
+    const added = g.puzzlesAdded != null ? g.puzzlesAdded : (g.puzzlesAdded = await addErrorPuzzles(g, mine));
+    if (!g.analysed) { g.analysed = true; logActivity("analyse"); }
+    Store.save();
+    if (!alive) return;
+    const dev = courseDeviation(g);
+    const item = x => `<button type="button" class="li errbtn" data-ply="${x.ply}" style="width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;cursor:pointer;color:inherit;font:inherit">
+      <div class="nm"><b>${Math.floor(x.ply / 2) + 1}${x.ply % 2 ? "…" : "."} ${esc(x.san)}</b> <span class="badge err">${lossText(x.loss, x.kind)}</span><small>${esc(KIND_TEXT[x.kind](x))}</small></div></button>`;
+    // Kommentare für den Nachspieler
+    const note = x => `Achtung, nächster Zug: ${x.turn === g.color ? "Hier hast du" : "Hier hat der Gegner"} ${x.san} gespielt (${/matt/.test(x.kind) ? "entscheidender Fehler" : lossText(x.loss) + " schlechter"}). ${KIND_TEXT[x.kind](x)}${x.best ? ` [Pfeil: ${x.best.slice(0, 4)}]` : ""}`;
+    const parsed = { fen: g.start, intro: res[0] && res[0].loss >= 70 ? note(res[0]) : (dev || ""), moves: res.map((x, i) => ({ san: x.san, uci: x.uci, comment: res[i + 1] && res[i + 1].loss >= 70 ? note(res[i + 1]) : "" })) };
+    $("#a-body", root).innerHTML = `
+      <div class="grid">
+        <div class="panel"><h2>Deine größten Fehler</h2><div class="list">${mine.map(item).join("") || `<p class="muted">Keine groben Fehler – stark!</p>`}</div></div>
+        <div class="panel"><h2>Größte Fehler des Gegners</h2><div class="list">${theirs.map(item).join("") || `<p class="muted">Der Gegner hat keine groben Fehler gemacht.</p>`}</div></div>
+      </div>
+      <div class="panel stack">${dev ? `<div><b>Eröffnung:</b> ${esc(dev)}</div>` : `<div class="muted small">Die Partie folgte keiner deiner Kursvarianten.</div>`}
+        ${added ? `<div class="ok">${added} Stellung${added === 1 ? "" : "en"} aus deinen Fehlern ${added === 1 ? "ist" : "sind"} jetzt im Taktiktrainer unter „Eigene Fehler“.</div>` : ""}</div>
+      <div id="a-trainer"></div>
+      <div class="panel stack"><h2 style="margin:0">PGN</h2><p class="small muted" style="margin:0">Zum Kopieren und Weiteranalysieren, z. B. auf Lichess.</p><textarea class="input" id="a-pgn" readonly></textarea><div><button class="btn" id="a-copy">Kopieren</button></div></div>`;
+    $("#a-pgn", root).value = gamePgn(g);
+    $("#a-copy", root).onclick = async () => { const t = $("#a-pgn", root); t.select(); try { await navigator.clipboard.writeText(t.value); toast("PGN kopiert."); } catch (e) { toast("Text markiert – mit Strg+C kopieren."); } };
+    const host = $("#a-trainer", root);
+    host.classList.add("train");
+    cleanupT = mountTrainer(host, { title: "Partie nachspielen", sub: "Fehler sind kommentiert, der bessere Zug ist als Pfeil eingezeichnet.", parsed, side: g.color, mode: "game", badge: "Eigene Partie", backHref: "#/spielen" });
+    $$(".errbtn", root).forEach(b => b.onclick = () => { host.scrollIntoView({ behavior: "smooth" }); const n = +b.dataset.ply; (n ? $(`[data-ply="${n}"]`, host) : $('[data-go="first"]', host))?.click(); });
+  };
+  if (g.analysis) show(g.analysis);
+  else AI.call("analyse", { start: g.start, moves: g.moves }, p => { const bar = $("#a-bar", root); if (bar) bar.style.width = Math.round(p * 100) + "%"; })
+    .then(res => { g.analysis = res; Store.save(); show(res); }).catch(err => { if (alive) $("#a-body", root).innerHTML = `<div class="err">Analyse fehlgeschlagen: ${esc(err.message)}</div>`; });
+  return () => { alive = false; cleanupT?.(); };
+};
+
+/** Endspiel-Datenbank: Weiß König + eine Figur (D, T oder Bauer) gegen den nackten schwarzen König.
+ *  Index = ((wk·64 + x)·64 + bk)·2 + (Schwarz am Zug ? 1 : 0). Wert: −1 ungültig, 0 Remis, n > 0 = Matt in n Halbzügen. */
+function tbSolve(kind, sub) {
+  const N = 64 * 64 * 64 * 2, V = new Int16Array(N).fill(0);
+  const F = s => s & 7, R = s => s >> 3, adj = (a, b) => Math.max(Math.abs(F(a) - F(b)), Math.abs(R(a) - R(b))) <= 1;
+  const KM = []; for (let s = 0; s < 64; s++) { KM[s] = []; for (let df = -1; df <= 1; df++) for (let dr = -1; dr <= 1; dr++) { if (!df && !dr) continue; const f = F(s) + df, r = R(s) + dr; if (f >= 0 && f < 8 && r >= 0 && r < 8) KM[s].push(r * 8 + f); } }
+  const DIRS = kind === "Q" ? [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]] : [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  // Felder, die die Figur von x aus erreicht/angreift; der weiße König (wk) blockiert, der schwarze König (bk) wird nur angegriffen
+  function slides(x, wk, bk, out) {
+    for (const [df, dr] of DIRS) { let f = F(x), r = R(x); for (;;) { f += df; r += dr; if (f < 0 || f > 7 || r < 0 || r > 7) break; const s = r * 8 + f; if (s === wk) break; out.push(s); if (s === bk) break; } }
+    return out;
+  }
+  const pawnAtt = x => { const o = [], f = F(x), r = R(x); if (r < 7) { if (f > 0) o.push(x + 7); if (f < 7) o.push(x + 9); } return o; };
+  const attacks = (x, wk, bk) => kind === "P" ? pawnAtt(x) : slides(x, wk, bk, []);
+  const idx = (wk, x, bk, btm) => ((wk * 64 + x) * 64 + bk) * 2 + btm;
+  const valid = (wk, x, bk, btm) => {
+    if (wk === x || wk === bk || x === bk || adj(wk, bk)) return false;
+    if (kind === "P" && (R(x) === 0 || R(x) === 7)) return false;
+    if (!btm && attacks(x, wk, bk).includes(bk)) return false; // Schwarz darf nicht im Schach stehen, wenn Weiß am Zug ist
+    return true;
+  };
+  for (let wk = 0; wk < 64; wk++) for (let x = 0; x < 64; x++) for (let bk = 0; bk < 64; bk++) for (let b = 0; b < 2; b++) if (!valid(wk, x, bk, b)) V[idx(wk, x, bk, b)] = -1;
+  // Züge von Schwarz: Liste von Folgeindizes; "draw" wenn Schwarz die Figur ungedeckt schlagen kann
+  function blackMoves(wk, x, bk) {
+    const out = []; let draw = false;
+    const att = new Set(attacks(x, wk, -1));
+    for (const t of KM[bk]) {
+      if (adj(t, wk) || att.has(t)) continue;
+      if (t === x) { if (!adj(x, wk)) draw = true; continue; }
+      out.push(idx(wk, x, t, 0));
+    }
+    return { out, draw };
+  }
+  // Züge von Weiß: Folgeindizes (Schwarz am Zug) oder Sonderfall Umwandlung (Wert aus der Unter-Datenbank)
+  function whiteMoves(wk, x, bk) {
+    const out = [], promo = [];
+    const att = attacks(x, wk, bk);
+    for (const t of KM[wk]) { if (t === x || adj(t, bk) || t === bk) continue; out.push(idx(t, x, bk, 1)); }
+    if (kind === "P") {
+      const one = x + 8;
+      if (one !== wk && one !== bk) {
+        if (R(one) === 7) promo.push(one); else out.push(idx(wk, one, bk, 1));
+        if (R(x) === 1 && x + 16 !== wk && x + 16 !== bk) out.push(idx(wk, x + 16, bk, 1));
+      }
+    } else for (const t of att) if (t !== bk) out.push(idx(wk, t, bk, 1));
+    return { out, promo };
+  }
+  const inCheck = (wk, x, bk) => attacks(x, wk, bk).includes(bk);
+  // Umwandlung: beste Unter-Datenbank (Dame oder Turm), Schwarz am Zug
+  const promoVal = (wk, q, bk) => {
+    let best = 0;
+    for (const s of sub || []) { const v = s[idx(wk, q, bk, 1)]; if (v > 0 && (!best || v < best)) best = v; }
+    return best;
+  };
+  // Matt-Stellungen (Schwarz am Zug)
+  for (let wk = 0; wk < 64; wk++) for (let x = 0; x < 64; x++) for (let bk = 0; bk < 64; bk++) {
+    const i = idx(wk, x, bk, 1); if (V[i] < 0) continue;
+    const m = blackMoves(wk, x, bk);
+    if (!m.out.length && !m.draw && inCheck(wk, x, bk)) V[i] = 1; // 1 = matt (intern +1, später −1)
+  }
+  // Rückwärts in Runden: Weiß gewinnt, wenn ein Zug zu einer Verluststellung führt; Schwarz verliert, wenn alle Züge verlieren.
+  // Wert d ≥ 1 bedeutet: Matt in d − 1 Halbzügen (Matt-Stellung selbst = 1).
+  const wm = new Array(N / 2), bm = new Array(N / 2);
+  let idle = 0;
+  for (let ply = 2; ply < 300 && idle < 2; ply++) {
+    let changed = false;
+    for (let wk = 0; wk < 64; wk++) for (let x = 0; x < 64; x++) for (let bk = 0; bk < 64; bk++) {
+      if (ply % 2 === 0) {
+        const i = idx(wk, x, bk, 0); if (V[i] !== 0) continue;
+        const h = i >> 1, m = wm[h] || (wm[h] = whiteMoves(wk, x, bk));
+        let win = false;
+        for (const j of m.out) if (V[j] === ply - 1) { win = true; break; }
+        if (!win) for (const q of m.promo) if (promoVal(wk, q, bk) === ply - 1) { win = true; break; }
+        if (win) { V[i] = ply; changed = true; }
+      } else {
+        const i = idx(wk, x, bk, 1); if (V[i] !== 0) continue;
+        const h = i >> 1, m = bm[h] || (bm[h] = blackMoves(wk, x, bk));
+        if (m.draw || !m.out.length) continue;
+        let all = true, mx = 0;
+        for (const j of m.out) { const v = V[j]; if (v <= 0) { all = false; break; } if (v > mx) mx = v; }
+        if (all && mx === ply - 1) { V[i] = ply; changed = true; }
+      }
+    }
+    idle = changed ? 0 : idle + 1;
+  }
+  return V;
+}
+/* ---------- Endspieltrainer ---------- */
+// Exakte Endspiel-Datenbanken (König + Dame/Turm/Bauer gegen König) werden beim ersten Aufruf im Hintergrund berechnet (ca. 1–3 Sekunden).
+const TB = {};
+const tbIdx = (wk, x, bk, btm) => ((wk * 64 + x) * 64 + bk) * 2 + btm;
+async function getTB(kind) {
+  if (!TB[kind]) TB[kind] = AI.call("tb", { kind }).then(v => (TB[kind] = v));
+  return TB[kind];
+}
+/** Stellung → { kind, idx } (Weiß hat König + eine Figur, Schwarz nur den König) */
+function tbKey(p) {
+  let wk = -1, bk = -1, x = -1, kind = null, extra = false;
+  p.board.forEach((c, sq) => { if (!c) return; if (c === "K") wk = sq; else if (c === "k") bk = sq; else if ("QRP".includes(c) && x < 0) { x = sq; kind = c; } else extra = true; });
+  if (extra || wk < 0 || bk < 0 || x < 0) return null;
+  return { kind, idx: tbIdx(wk, x, bk, p.turn === "b" ? 1 : 0) };
+}
+/** Wert: 0 Remis, d ≥ 1 = Weiß setzt in d − 1 Halbzügen matt; bei Bauer-Umwandlung wird in der Damen-/Turm-Datenbank weitergesucht */
+function tbValue(p) {
+  const k = tbKey(p);
+  if (!k) { // Bauer geschlagen oder nur Könige: Remis
+    const left = p.board.filter(Boolean).length;
+    return left <= 2 ? 0 : null;
+  }
+  const T = TB[k.kind]; if (!T || T.then) return null;
+  return T[k.idx];
+}
+const movesToMate = d => Math.ceil((d - 1) / 2);
+
+const ENDSPIELE = [
+  { id: "dame", title: "Matt mit der Dame", side: "w", kind: "Q", tb: ["Q"],
+    text: "König und Dame gegen König. Dränge den König mit der Dame an den Rand (Springerabstand ist oft ideal), hole den eigenen König heran und setze matt. Achtung vor Patt!",
+    goal: "Setze matt – möglichst ohne Umwege." },
+  { id: "turm", title: "Matt mit dem Turm", side: "w", kind: "R", tb: ["R"],
+    text: "König und Turm gegen König. Der Turm schneidet den König ab („Kasten“), der eigene König unterstützt. Opposition der Könige + Turmschach am Rand = Matt.",
+    goal: "Setze matt – der Turm allein schafft es nicht, der König muss helfen." },
+  { id: "opposition", title: "Opposition (Bauernendspiel)", side: "w", kind: "P", tb: ["Q", "R", "P"],
+    text: "König und Bauer gegen König. Wer die Opposition hat (Könige stehen sich mit einem Feld Abstand gegenüber, der andere ist am Zug), entscheidet über Sieg oder Remis. Der eigene König gehört vor den Bauern.",
+    goal: "Bringe den Bauern sicher zur Dame. Nur genaue Züge gewinnen." },
+  { id: "quadrat", title: "Quadratregel", side: "b", kind: "P", tb: ["Q", "R", "P"],
+    text: "Du verteidigst mit Schwarz. Zieh in Gedanken ein Quadrat vom Bauern bis zur Umwandlungsreihe. Erreicht dein König dieses Quadrat, holt er den Bauern ein. Steht der weiße König nah, musst du ihm außerdem den Weg verstellen.",
+    goal: "Halte Remis: erobere den Bauern oder blockiere ihn." },
+  { id: "lucena", title: "Lucena-Stellung", line: "endspiel:lucena", text: "Turm und Bauer gegen Turm, gewinnen: König heraus, Turm auf die 4. Reihe, Brücke bauen.", goal: "Geführte Variante mit Wiederholung." },
+  { id: "philidor", title: "Philidor-Stellung", line: "endspiel:philidor", text: "Turm gegen Turm und Bauer, verteidigen: Turm auf der 6. Reihe, später Schach von hinten.", goal: "Geführte Variante mit Wiederholung." }
+];
+let ES_CUR = null;
+const esState = id => (Store.data.endspiel || (Store.data.endspiel = {}))[id] || { runs: 0, wins: 0, perfect: 0 };
+
+/** Zufällige, lehrreiche Startstellung aus der Datenbank */
+function endgameStart(ex) {
+  const T = TB[ex.kind], R = Math.random, F = s => s & 7, Rk = s => s >> 3;
+  for (let tries = 0; tries < 200000; tries++) {
+    const wk = Math.floor(R() * 64), x = Math.floor(R() * 64), bk = Math.floor(R() * 64);
+    if (ex.id === "dame" || ex.id === "turm") {
+      const v = T[tbIdx(wk, x, bk, 0)];
+      if (v > 0 && movesToMate(v) >= (ex.id === "dame" ? 8 : 12) && Math.abs(F(bk) - 3.5) < 2.6 && Math.abs(Rk(bk) - 3.5) < 2.6) return { wk, x, bk, turn: "w" };
+    } else if (ex.id === "opposition") {
+      if (F(x) < 1 || F(x) > 6 || Rk(x) < 1 || Rk(x) > 4 || Rk(wk) <= Rk(x) || Math.abs(F(wk) - F(x)) > 1 || Rk(bk) <= Rk(wk) || Math.abs(F(bk) - F(x)) > 2 || Rk(bk) - Rk(wk) > 3) continue;
+      const i = tbIdx(wk, x, bk, 0); if (!(T[i] > 0)) continue;
+      const p = endPos(wk, x, bk, "w", "P"), good = Chess.legalMoves(p).filter(m => (tbValue(Chess.make(p, m)) || 0) > 0);
+      if (good.length === 1) return { wk, x, bk, turn: "w" };
+    } else if (ex.id === "quadrat") {
+      if (Rk(x) < 2 || Rk(x) > 4 || Math.max(Math.abs(F(wk) - F(x)), Math.abs(Rk(wk) - Rk(x))) < 3) continue;
+      const i = tbIdx(wk, x, bk, 1); if (T[i] !== 0) continue;
+      const dist = Math.max(Math.abs(F(bk) - F(x)), Math.abs(7 - Rk(bk)));
+      if (dist < 2 || Math.max(Math.abs(F(bk) - F(x)), Math.abs(Rk(bk) - Rk(x))) < 3) continue;
+      const p = endPos(wk, x, bk, "b", "P"), all = Chess.legalMoves(p), ok = all.filter(m => tbValue(Chess.make(p, m)) === 0);
+      if (all.length >= 4 && ok.length <= 2) return { wk, x, bk, turn: "b" };
+    }
+  }
+  return null;
+}
+function endPos(wk, x, bk, turn, kind) {
+  const b = Array(64).fill(null); b[wk] = "K"; b[x] = kind; b[bk] = "k";
+  return Chess.fromFEN(Chess.toFEN({ board: b, turn, castling: "", ep: -1, half: 0, full: 1 }));
+}
+
+Views.endspiel = root => {
+  root.innerHTML = `<h1>Endspieltrainer</h1><p class="muted">Grundendspiele, die jeder können sollte. Bei Dame, Turm und Bauernendspielen spielt der Computer mit einer exakten Endspieldatenbank – er verteidigt sich perfekt und du siehst sofort, ob dein Zug der beste war.</p>
+    <div class="grid">${ENDSPIELE.map(ex => {
+      if (ex.line) {
+        const e = Content.lines.get(ex.line), lb = e && SRS.label(e.id);
+        return `<div class="panel card"><div class="t"><h3>${esc(ex.title)}</h3>${lb ? `<span class="badge ${lb.cls}">${lb.text}</span>` : ""}</div><p class="muted small" style="margin:0">${esc(ex.text)}</p>
+          <div class="row"><a class="btn small" href="#/ueben/${encodeURIComponent(ex.line)}/learn">Lernen</a><a class="btn small ${e && SRS.isDue(e.id) ? "primary" : ""}" href="#/ueben/${encodeURIComponent(ex.line)}/quiz">Abfragen</a>${ex.id === "lucena" ? `<a class="btn small" href="#/ueben/${encodeURIComponent("endspiel:lucena2")}/quiz">Variante 2</a>` : ""}</div></div>`;
+      }
+      const s = esState(ex.id);
+      return `<a class="panel card" href="#/endspiel-ueben/${ex.id}"><div class="t"><h3>${esc(ex.title)}</h3><span class="badge ${s.wins ? "due" : ""}">${s.wins} / ${s.runs} geschafft</span></div><p class="muted small" style="margin:0">${esc(ex.text)}</p>${s.perfect ? `<span class="small muted">${s.perfect}× auf dem kürzesten Weg</span>` : ""}</a>`;
+    }).join("")}</div>`;
+};
+
+Views["endspiel-ueben"] = (root, args) => {
+  const ex = ENDSPIELE.find(e => e.id === args[0] && !e.line);
+  if (!ex) { root.innerHTML = `<div class="err">Übung nicht gefunden.</div>`; return; }
+  root.classList.add("train");
+  const me = ex.side, cpu = me === "w" ? "b" : "w";
+  let alive = true, game = null, mistakes = 0, slow = 0, done = false, timer = 0, start = null, myMoves = 0, startVal = 0;
+  root.innerHTML = `<div class="trainer"><div id="t-board"></div><div class="side">
+    <div class="panel stack"><div><a href="#/endspiel" class="small">‹ Endspiele</a></div>
+      <div><h2 style="margin:0">${esc(ex.title)}</h2><div class="muted small">${esc(ex.goal)}</div></div>
+      <div class="row"><span class="badge ${me}">Du spielst ${SIDE[me]}</span></div></div>
+    <div class="panel comment"><div class="status" id="t-status"></div><div id="t-comment"><span class="muted">Endspieldatenbank wird berechnet …</span></div></div>
+    <div class="ctrl" id="t-ctrl"></div>
+    <div id="t-end"></div>
+    <div class="panel small muted">${esc(ex.text)}</div></div></div>`;
+  const board = new Board($("#t-board", root), { orientation: me, onMove: userMove });
+  const status = (txt, cls) => { const s = $("#t-status", root); s.textContent = txt || ""; s.className = "status " + (cls || ""); };
+  const say = html => { $("#t-comment", root).innerHTML = html; };
+  function info() {
+    const v = tbValue(game.pos);
+    if (me === "w" && v > 0) return `Matt in ${movesToMate(v)} ${movesToMate(v) === 1 ? "Zug" : "Zügen"} möglich (bei bester Verteidigung).`;
+    return "";
+  }
+  function draw() {
+    const h = game.history[game.history.length - 1];
+    board.setPosition(game.pos, h ? [h.move.from, h.move.to] : null);
+    board.setMovable(!done && game.pos.turn === me ? me : null);
+    $("#t-ctrl", root).innerHTML = done ? `<button class="btn primary" data-go="new">Neue Stellung</button><button class="btn" data-go="again">Gleiche Stellung</button><button class="btn icon" data-go="flip" aria-label="Brett drehen">${icon("flip")}</button>`
+      : `<button class="btn" data-go="hint">Tipp</button><button class="btn" data-go="undo" ${game.history.length ? "" : "disabled"}>Zug zurück</button><button class="btn icon" data-go="flip" aria-label="Brett drehen">${icon("flip")}</button>`;
+  }
+  function bestMoves(p) {
+    // Züge für die Seite am Zug, sortiert nach Datenbank: Weiß will schnell matt, Schwarz will Remis oder möglichst spät verlieren
+    const list = Chess.legalMoves(p).map(m => {
+      const n = Chess.make(p, m); let v = tbValue(n); // nach einer Umwandlung gilt automatisch die Dame-/Turm-Datenbank
+      if (v === null || v === undefined) v = Chess.inCheck(n) && !Chess.legalMoves(n).length ? 1 : 0;
+      return { m, v };
+    });
+    if (p.turn === "w") list.sort((a, b) => (a.v > 0 ? a.v : 1e4) - (b.v > 0 ? b.v : 1e4));
+    else list.sort((a, b) => (a.v === 0 ? -1e4 : -a.v) - (b.v === 0 ? -1e4 : -b.v));
+    return list;
+  }
+  function finish(ok, text) {
+    done = true; clearTimeout(timer);
+    const st = Store.data.endspiel || (Store.data.endspiel = {}), s = st[ex.id] || (st[ex.id] = { runs: 0, wins: 0, perfect: 0 });
+    s.runs++; if (ok) s.wins++;
+    const perfect = ok && !mistakes && !slow;
+    if (perfect) s.perfect++;
+    logActivity("endspiel"); Store.save();
+    status(ok ? (perfect ? "Perfekt gelöst!" : "Geschafft!") : "Nicht geschafft", ok ? "good" : "bad");
+    $("#t-end", root).innerHTML = `<div class="panel"><div class="${ok ? "ok" : "err"}">${text}${ok && me === "w" && ex.id !== "opposition" ? ` Du hast ${myMoves} Züge gebraucht, der kürzeste Weg waren ${movesToMate(startVal)}.` : ""}${mistakes ? ` ${mistakes} Zug${mistakes === 1 ? "" : "e"} hätte${mistakes === 1 ? "" : "n"} den Gewinn verschenkt.` : ""}</div></div>`;
+    draw();
+  }
+  function judge() {
+    const p = game.pos, st = game.status(), v = tbValue(p);
+    if (st.over) {
+      if (st.reason === "Schachmatt") return finish(true, "Schachmatt!"), true;
+      if (me === "b") return finish(true, `Remis (${st.reason}) – gut verteidigt!`), true;
+      return finish(false, `Remis (${st.reason}).`), true;
+    }
+    if (ex.id === "opposition" && game.history.length && game.history[game.history.length - 1].move.promo && v > 0) return finish(true, "Der Bauer ist durch und die neue Figur sicher – gewonnen!"), true;
+    if (ex.id === "quadrat" && me === "b" && myMoves >= 15 && v === 0) return finish(true, "Du hast 15 Züge lang Remis gehalten – geschafft!"), true;
+    if (ex.id === "quadrat" && game.history.length && game.history[game.history.length - 1].move.promo) {
+      if (v > 0) return finish(false, "Der Bauer ist zur Dame geworden."), true;
+      if (game.pos.turn === me) { status("Die neue Dame steht ungedeckt – schlag sie!", "good"); say("Weiß hat umgewandelt, aber dein König kann die Dame schlagen."); }
+    }
+    if (me === "w" && myMoves > 50) return finish(false, "Mehr als 50 Züge ohne Matt – nach der 50-Züge-Regel wäre das Remis."), true;
+    return false;
+  }
+  function userMove(m) {
+    if (done || game.pos.turn !== me) return false;
+    const before = game.pos, vb = tbValue(before);
+    const opts = bestMoves(before), best = opts[0];
+    game.play(m); myMoves++;
+    const va = tbValue(game.pos) ?? 0;
+    board.setArrows([]);
+    if (me === "w") {
+      if (vb > 0 && !(va > 0) && !(game.status().reason === "Schachmatt")) {
+        mistakes++;
+        status("Damit ist der Gewinn weg!", "bad");
+        say(`${game.status().reason === "Patt" ? "<b>Patt!</b> Der schwarze König hat keinen Zug mehr, steht aber nicht im Schach. " : `<b>${esc(Chess.san(before, m))}</b> verschenkt den Gewinn${va === 0 && tbKey(game.pos)?.kind && ex.kind !== "P" ? " – die Figur kann geschlagen werden" : ""}. `}Gewonnen hätte z. B. <b>${esc(Chess.san(before, best.m))}</b>. Nimm den Zug zurück und versuche es noch einmal.`);
+        board.setArrows([[Chess.sqName(best.m.from), Chess.sqName(best.m.to), "hint"]]);
+        draw(); if (game.status().over) judge();
+        return true;
+      }
+      if (vb > 0 && va > 0 && va > vb - 1) { slow++; status("Gewinnt weiter – aber nicht am schnellsten.", ""); say(`Noch gewonnen, aber ${esc(Chess.san(before, best.m))} war schneller (Matt in ${movesToMate(vb)} statt jetzt ${movesToMate(va + 1)}). ${info()}`); }
+      else if (va > 0 || game.status().reason === "Schachmatt") { status("Bester Zug!", "good"); say(info() || "Gut."); }
+    } else {
+      if (vb === 0 && va > 0) {
+        mistakes++;
+        const good = opts.filter(o => o.v === 0).map(o => Chess.san(before, o.m));
+        status("Jetzt gewinnt Weiß!", "bad");
+        say(`Nach <b>${esc(Chess.san(before, m))}</b> kommt Weiß durch. Remis hielt ${good.map(s => `<b>${esc(s)}</b>`).join(" oder ")}. Nimm den Zug zurück und versuche es noch einmal.`);
+        board.setArrows([[Chess.sqName(best.m.from), Chess.sqName(best.m.to), "hint"]]);
+        draw(); return true;
+      }
+      status("Hält Remis.", "good"); say("Gut – die Stellung bleibt Remis.");
+    }
+    draw();
+    if (judge()) return true;
+    timer = setTimeout(cpuMove, 450);
+    return true;
+  }
+  function cpuMove() {
+    if (!alive || done || game.pos.turn !== cpu) return;
+    const opts = bestMoves(game.pos);
+    let pick;
+    if (cpu === "b") { const top = opts.filter(o => o.v === opts[0].v); pick = top[Math.floor(Math.random() * top.length)]; }
+    else {
+      // Weiß in Remisstellung: Bauer möglichst nach vorn schieben, damit der Verteidiger genau sein muss
+      const wins = opts.filter(o => o.v > 0);
+      if (wins.length) pick = wins[0];
+      else {
+        const safe = opts.filter(o => !Chess.legalMoves(Chess.make(game.pos, o.m)).some(x => x.captured === "P")), pool = safe.length ? safe : opts;
+        const push = pool.filter(o => o.m.piece === "P");
+        pick = push.length && Math.random() < 0.7 ? push[0] : pool[Math.floor(Math.random() * pool.length)];
+      }
+    }
+    game.play(pick.m); draw(); judge();
+  }
+  async function newGame(same) {
+    done = false; mistakes = 0; slow = 0; myMoves = 0; clearTimeout(timer);
+    $("#t-end", root).innerHTML = ""; board.setArrows([]); status("");
+    if (!same || !start) {
+      say('<span class="muted">Endspieldatenbank wird berechnet …</span>');
+      for (const k of ex.tb) await getTB(k);
+      if (!alive) return;
+      start = endgameStart(ex);
+      if (!start) { say("Keine passende Stellung gefunden – bitte noch einmal versuchen."); return; }
+    }
+    game = new Chess.Game(Chess.toFEN(endPos(start.wk, start.x, start.bk, start.turn, ex.kind)));
+    startVal = tbValue(game.pos);
+    say(me === "w" ? `${ex.id === "opposition" ? "Weiß am Zug gewinnt – aber nur ein einziger Zug hält den Gewinn." : info()}` : "Schwarz am Zug. Nur genaue Züge halten Remis.");
+    draw();
+  }
+  root.onclick = e => {
+    const b = e.target.closest("[data-go]"); if (!b) return;
+    const g = b.dataset.go;
+    if (g === "flip") board.flip();
+    if (g === "new") newGame(false);
+    if (g === "again") newGame(true);
+    if (g === "undo" && game.history.length) {
+      clearTimeout(timer);
+      game.undo(); if (game.pos.turn !== me && game.history.length) game.undo();
+      if (game.pos.turn !== me) { newGame(true); return; }
+      myMoves = Math.max(0, myMoves - 1); board.setArrows([]); status(""); say(info() || "Zug zurückgenommen."); draw();
+    }
+    if (g === "hint" && !done && game.pos.turn === me) {
+      const best = bestMoves(game.pos)[0]; slow++;
+      board.setArrows([[Chess.sqName(best.m.from), Chess.sqName(best.m.to), "hint"]]); status("Tipp eingezeichnet.", "");
+    }
+  };
+  ES_CUR = { get game() { return game; }, bestMoves }; // für automatische Tests
+  newGame(false);
+  return () => { alive = false; clearTimeout(timer); };
+};
+
 /* ---------- Router ---------- */
 let cleanup = null;
 function route() {
@@ -1531,7 +2448,7 @@ function route() {
   const parts = (location.hash.replace(/^#\/?/, "") || "").split("/").filter(Boolean);
   const name = parts[0] || "start", view = Views[name] || Views.start;
   const root = $("#app"); root.className = "wrap"; root.onclick = null; root.innerHTML = "";
-  $$("#nav a").forEach(a => a.setAttribute("aria-current", String((a.getAttribute("href").replace("#/", "") || "start") === (["kurs", "ueben", "partie"].includes(name) ? "eroeffnungen" : name === "aufgabe" ? "taktik" : name === "sicherheit-spiel" ? "sicherheit" : name) ? "page" : "false")));
+  $$("#nav a").forEach(a => a.setAttribute("aria-current", String((a.getAttribute("href").replace("#/", "") || "start") === (["kurs", "ueben", "partie"].includes(name) ? "eroeffnungen" : name === "aufgabe" ? "taktik" : name === "sicherheit-spiel" ? "sicherheit" : ["spiel", "spiel-ansicht"].includes(name) ? "spielen" : name === "endspiel-ueben" ? "endspiel" : name) ? "page" : "false")));
   cleanup = view(root, parts.slice(1)) || null;
   window.scrollTo(0, 0);
 }

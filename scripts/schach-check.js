@@ -4,8 +4,9 @@ import { readFileSync } from "fs";
 const html = readFileSync(new URL("../schach.html", import.meta.url), "utf8");
 const part = (a, b) => html.slice(html.indexOf(a), html.indexOf(b) + b.length);
 const code = [part("/*ENGINE-START*/", "/*ENGINE-END*/"), part("/*CONTENT-START*/", "/*CONTENT-END*/"),
-  "return { Chess, Engine, COURSES, MUSTERPARTIEN, TAKTIK: typeof TAKTIK !== 'undefined' ? TAKTIK : [] };"].join("\n");
-const { Chess, Engine, COURSES, MUSTERPARTIEN, TAKTIK } = new Function(code)();
+  html.slice(html.indexOf("function tbSolve("), html.indexOf("/* ---------- Endspieltrainer")),
+  "return { Chess, Engine, COURSES, MUSTERPARTIEN, TAKTIK, ENDSPIEL_KURS, tbSolve };"].join("\n");
+const { Chess, Engine, COURSES, MUSTERPARTIEN, TAKTIK, ENDSPIEL_KURS, tbSolve } = new Function(code)();
 
 let fails = 0;
 const perft = (p, d) => d ? Chess.legalMoves(p).reduce((n, m) => n + perft(Chess.make(p, m), d - 1), 0) : 1;
@@ -18,7 +19,7 @@ for (const [fen, exp] of [
 ]) exp.forEach((e, i) => { const n = perft(Chess.fromFEN(fen), i + 1); if (n !== e) { fails++; console.log(`Perft FEHLER ${fen} Tiefe ${i + 1}: ${n} statt ${e}`); } });
 
 let lines = 0;
-for (const c of COURSES) for (const l of c.lines) {
+for (const c of [...COURSES, ENDSPIEL_KURS]) for (const l of c.lines) {
   lines++;
   const r = Chess.parsePgn(l.pgn);
   if (r.error || !r.moves.length) { fails++; console.log(`FEHLER ${c.id}/${l.key}:`, r.error || "keine Züge"); }
@@ -40,5 +41,15 @@ for (const t of TAKTIK) {
   if (t.line.length % 2 === 0) { fails++; console.log(`FEHLER Aufgabe ${t.id}: Lösung muss mit eigenem Zug enden`); }
 }
 console.log(`${TAKTIK.length} Taktikaufgaben geprüft`);
+// Endspiel-Datenbanken gegen bekannte Werte prüfen: KDK längstes Matt 10 Züge, KTK 16 Züge, KBK 124 960 Gewinnstellungen (Weiß am Zug)
+{
+  const stat = V => { let mx = 0, w = 0; for (let i = 0; i < V.length; i += 2) if (V[i] > 0) { w++; mx = Math.max(mx, V[i]); } return { mx: Math.ceil((mx - 1) / 2), w }; };
+  const Q = tbSolve("Q"), R = tbSolve("R"), P = tbSolve("P", [Q, R]);
+  const q = stat(Q), r = stat(R), p = stat(P);
+  if (q.mx !== 10) { fails++; console.log("FEHLER KDK: längstes Matt", q.mx); }
+  if (r.mx !== 16) { fails++; console.log("FEHLER KTK: längstes Matt", r.mx); }
+  if (p.w !== 124960) { fails++; console.log("FEHLER KBK: Gewinnstellungen", p.w); }
+  console.log(`Endspiel-Datenbanken: KDK max. ${q.mx} Züge, KTK max. ${r.mx} Züge, KBK ${p.w} Gewinnstellungen`);
+}
 console.log(`${lines} Varianten, ${Object.keys(MUSTERPARTIEN).length} Musterpartien geprüft – ${fails ? fails + " Fehler" : "alles legal, Perft korrekt"}`);
 process.exit(fails ? 1 : 0);
